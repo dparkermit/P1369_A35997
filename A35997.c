@@ -1,4 +1,13 @@
+#include "A35997.h"
 #include "faults_A35997.h"
+
+
+
+#define SPI2_STATE_READ_B_AND_START_CONVERSION    0
+#define SPI2_STATE_START_A_TRANSFER               1
+#define SPI2_STATE_READ_A_AND_START_B_TRANSFER    2
+
+
 
 // Debugging Information
 
@@ -10,9 +19,82 @@ unsigned int LTC2656_write_error_count;
 LTC2656 U6_LTC2656;
 
 
+RF_DETECTOR forward_power_detector_A;
+RF_DETECTOR forward_power_detector_B;
+
+RF_DETECTOR reverse_power_detector_A;
+RF_DETECTOR reverse_power_detector_B;
+
+
+
+unsigned int reverse_detector_a_level = 1;
+unsigned int reverse_detector_b_level = 1;
+
+unsigned int rf_amplifier_temp = 1;
+unsigned int fwd_rf_det_a_temp = 1;
+unsigned int fwd_rf_det_b_temp = 1;
+unsigned int rev_rf_det_a_temp = 1;
+unsigned int rev_rf_det_b_temp = 1;
+
+volatile unsigned int power_program = 1;
+volatile unsigned char adc_result_index;
+
+unsigned int reverse_detector_a_array[128];
+unsigned int reverse_detector_b_array[128];
+unsigned int rf_amplifier_temperature_array[128];
+unsigned int fwd_rf_det_a_temperature_array[128];
+unsigned int fwd_rf_det_b_temperature_array[128];
+unsigned int rev_rf_det_a_temperature_array[128];
+unsigned int rev_rf_det_b_temperature_array[128];
+
+
+
+volatile unsigned int spi2_state;
+unsigned int forward_detector_a_array[16];
+unsigned int forward_detector_b_array[16];
+volatile unsigned char AD7686_result_index;
+
+volatile unsigned int measured_power_a;
+volatile unsigned int measured_power_b;
+volatile unsigned int forward_power;
+
+volatile unsigned int power_target_centi_watts;
+volatile unsigned int total_forward_power_centi_watts;
+volatile unsigned int rf_amplifier_dac_output;
+
+
+
+BUFFERBYTE64 uart1_input_buffer;
+BUFFERBYTE64 uart1_output_buffer;
+
+
 // global variables
 unsigned char control_state;
+unsigned char software_foldback_mode_enable = 0;
+unsigned char software_rf_disable = 1;
 
+
+
+void DoA35997StartUp(void);
+void CalibrateADCReading(RF_DETECTOR* ptr_rf_det, unsigned int adc_reading);
+void CalibrateDetectorLevel(RF_DETECTOR* ptr_rf_det);
+void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* prt_rf_det);
+void Do10msTicToc(void);
+void FilterADCs(void);
+
+
+unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level);
+
+void SetFrontPanelLedState(unsigned char led_state);
+#define SOLID_GREEN                1
+#define SOLID_BLUE                 2
+#define FLASH_BLUE                 3
+#define SOLID_RED                  4
+#define FLASH_RED                  5
+
+
+
+#define DPARKER_LED_FLASH_COMPLETE 1
 
 void DoA35997StateMachine(void) {
   
@@ -42,7 +124,7 @@ void DoA35997StateMachine(void) {
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
     software_foldback_mode_enable = 0;
     software_rf_disable = 0; 
-    SetFrontPanelLedState(GREEN);
+    SetFrontPanelLedState(SOLID_GREEN);
     // We don't want to wait for the software loop to start the amplifier so this must be pre-set to the on condition.
     while (control_state == STATE_RF_OFF) {
       DoSerialCommand();
@@ -62,7 +144,7 @@ void DoA35997StateMachine(void) {
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
     software_foldback_mode_enable = 0;
     software_rf_disable = 0;
-    SetFrontPanelLedState(BLUE);
+    SetFrontPanelLedState(SOLID_BLUE);
     while (control_state == STATE_RF_ON) {
       DoSerialCommand();
       Do10msTicToc();
@@ -73,7 +155,7 @@ void DoA35997StateMachine(void) {
       } else if (PIN_RF_ENABLE != ILL_PIN_RF_ENABLE_ENABLED) {
 	control_state = STATE_RF_OFF;
       } else if (CheckReflectedPowerFault()) {
-	control_state = STATE_RF_ON_FOLDBACK:
+	control_state = STATE_RF_ON_FOLDBACK;
       }
     }
     break;
@@ -133,14 +215,10 @@ void DoA35997StateMachine(void) {
 
 
 void DoA35997StartUp(void) {
-  // Debug Counter Initializations
-  unsigned int sp1_bus_error_count;
-  unsigned int sp2_bus_error_count;
-  unsigned int LTC2656_write_error_count;
-
-
   
   // DPARKER Initialize PID
+  
+
 
   // --------- BEGIN IO PIN CONFIGURATION ------------------
   
@@ -266,25 +344,25 @@ void DoA35997StartUp(void) {
   ResetAllFaults();
   
   // --------------- Initialize U6 - LTC2656 ------------------------- //
-  U6_LTC2656.pin_cable_select = _PIN_RD15;
-  U6_LTC2656.pin_dac_clear = _PIN_RB15;
-  U6_LTC2656.pin_load_dac = _PIN_RD14;
+  U6_LTC2656.pin_cable_select_not = _PIN_RD15;
+  U6_LTC2656.pin_dac_clear_not = _PIN_RB15;
+  U6_LTC2656.pin_load_dac_not = _PIN_RD14;
   U6_LTC2656.pin_por_select = _PIN_NOT_CONNECTED;
   U6_LTC2656.por_select_value = 0;
-  U6_LTC2656.spi_port = SPI_PORT_1;
+  U6_LTC2656.spi_port = ETM_SPI_PORT_1;
 
   SetupLTC2656(&U6_LTC2656);
   
 
   
   // ---- Configure the dsPIC ADC Module ------------ //
-  ADCON1 = A34760_ADCON1_VALUE;             // Configure the high speed ADC module based on H file parameters
-  ADCON2 = A34760_ADCON2_VALUE;             // Configure the high speed ADC module based on H file parameters
-  ADCON3 = A34760_ADCON3_VALUE;             // Configure the high speed ADC module based on H file parameters
-  ADCHS  = A34760_ADCHS_VALUE;              // Configure the high speed ADC module based on H file parameters
+  ADCON1 = A35997_ADCON1_VALUE;             // Configure the high speed ADC module based on H file parameters
+  ADCON2 = A35997_ADCON2_VALUE;             // Configure the high speed ADC module based on H file parameters
+  ADCON3 = A35997_ADCON3_VALUE;             // Configure the high speed ADC module based on H file parameters
+  ADCHS  = A35997_ADCHS_VALUE;              // Configure the high speed ADC module based on H file parameters
   
-  ADPCFG = A34760_ADPCFG_VALUE;             // Set which pins are analog and which are digital I/O
-  ADCSSL = A34760_ADCSSL_VALUE;             // Set which analog pins are scanned
+  ADPCFG = A35997_ADPCFG_VALUE;             // Set which pins are analog and which are digital I/O
+  ADCSSL = A35997_ADCSSL_VALUE;             // Set which analog pins are scanned
 
 
   // Begin External ADC operation (this uses SPI2)
@@ -303,7 +381,7 @@ void DoA35997StartUp(void) {
   T1CONbits.TON = 1;
 
   // Begin UART operation
-  PIN_RS422_DE = OLL_RS422_DE_ENABLE_RS422_DRIVER  // Enable the RS422 Driver output (The reciever is always enabled)
+  PIN_RS422_DE = OLL_PIN_RS422_DE_ENABLE_TRANSMIT;   // Enable the RS422 Driver output (The reciever is always enabled)
   command_string.data_state = COMMAND_BUFFER_EMPTY;  // The command buffer is empty
 
   _U1TXIF = 0;	// Clear the Transmit Interrupt Flag
@@ -336,12 +414,12 @@ void DoA35997StartUp(void) {
 */
 
 void CalibrateADCReading(RF_DETECTOR* ptr_rf_det, unsigned int adc_reading) {
-  ptr_rf_det.adc_reading_calibrated = adc_reading;
+  ptr_rf_det->adc_reading_calibrated = adc_reading;
   // DPARKER - Need to do calibration
 }
 
 void CalibrateDetectorLevel(RF_DETECTOR* ptr_rf_det) {
-  ptr_rf_det->detector_level_calibrated = ptr_rf_det.adc_reading_calibrated;
+  ptr_rf_det->detector_level_calibrated = ptr_rf_det->adc_reading_calibrated;
   // DPARKER - Need to do calibration
 }
 
@@ -356,14 +434,13 @@ void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* prt_rf_det) {
   // Result += ( (X[n+1] - X[n]) * 4_LSB ) >> 4;
   // 
 
-  return 0;
   // DPARKER need to make conversion
 }
 
 unsigned char led_pulse_count;
 unsigned char start_reset_process;
 
-void Do10msTicToc() {
+void Do10msTicToc(void) {
 
   ClrWdt();
   if (_T2IF) {
@@ -405,9 +482,9 @@ void Do10msTicToc() {
     RolloffCalculation();  // DPARKER FIGURE THIS OUT
   } 
 }
-
-
-
+ 
+ 
+ 
 void FilterADCs(void) {
   unsigned int averaged_adc_reading;
   // Forward Detector A and B are read by the external ADC and filtered by the SPI Interrupt because their updated values are needed immediately
@@ -434,7 +511,7 @@ void FilterADCs(void) {
   rev_rf_det_b_temp = RCFilterNTau(rev_rf_det_b_temp, averaged_adc_reading, RC_FILTER_64_TAU);
   
   averaged_adc_reading = AverageADC128(reverse_detector_a_array);
-  reverse_detector_a_level = RCFilterNTau(reverse_detector_A_level, averaged_adc_reading, RC_FILTER_8_TAU);
+  reverse_detector_a_level = RCFilterNTau(reverse_detector_a_level, averaged_adc_reading, RC_FILTER_8_TAU);
 
   averaged_adc_reading = AverageADC128(reverse_detector_b_array);
   reverse_detector_b_level = RCFilterNTau(reverse_detector_b_level, averaged_adc_reading, RC_FILTER_8_TAU);
@@ -445,47 +522,14 @@ void FilterADCs(void) {
 
 
 // ------------ ISRs ---------------- //
-unsigned int reverse_detector_a_level = 1;
-unsigned int reverse_detector_b_level = 1;
-
-unsigned int rf_amplifier_temp = 1;
-unsigned int fwd_rf_det_a_temp = 1;
-unsigned int fwd_rf_det_b_temp = 1;
-unsigned int rev_rf_det_a_temp = 1;
-unsigned int rev_rf_det_b_temp = 1;
-
-volatile unsigned int power_program = 1;
-volatile unsigned char adc_result_index;
-
-volatile unsigned int reverse_detector_a_array[128];
-volatile unsigned int reverse_detector_b_array[128];
-volatile unsigned int rf_amplifier_temperature_array[128];
-volatile unsigned int fwd_rf_det_a_temperature_array[128];
-volatile unsigned int fwd_rf_det_b_temperature_array[128];
-volatile unsigned int rev_rf_det_a_temperature_array[128];
-volatile unsigned int rev_rf_det_b_temperature_array[128];
-
-
-
-volatile unsigned int spi2_state;
-volatile unsigned int forward_detector_a_array[16];
-volatile unsigned int forward_detector_b_array[16];
-volatile unsigned char AD7686_result_index;
-
-volatile unsigned int measured_power_a;
-volatile unsigned int measured_power_b;
-volatile unsigned int forward_power;
 
 
 
 
 // SPI2 Interrupt - External ADC
 
-#define SPI2_STATE_READ_B_AND_START_CONVERSION    0
-#define SPI2_STATE_START_A_TRANSFER               1
-#define SPI2_STATE_READ_A_AND_START_B_TRANSFER    2
-
 void _ISRFASTNOPSV _SPI2Interrupt(void) {
+  unsigned int trash;
   _SPI2IF = 0;
   switch(spi2_state) {
   
@@ -503,7 +547,7 @@ void _ISRFASTNOPSV _SPI2Interrupt(void) {
 
   case SPI2_STATE_START_A_TRANSFER:
     // (*) SPI Interrupt CS1->Low and starts 16 bit transfer, exits = 16 bit delay + execution time
-    throw_away_data = SPI2BUF;
+    trash = SPI2BUF;
     PIN_AD7686_1_CS = OLL_AD7686_SELECT_DEVICE;
     SPI2BUF = 0xAAAA;
     spi2_state = SPI2_STATE_READ_A_AND_START_B_TRANSFER;
@@ -532,8 +576,8 @@ void _ISRNOPSV _ADCInterrupt(void) {
   if (_BUFS) {
     // read from 0x0 -> 0x7
     power_level_average = ADCBUF0 + ADCBUF2 + ADCBUF4 + ADCBUF6;
-    reverse_detector_B_array[adc_result_index] = ADCBUF1;
-    reverse_detector_A_array[adc_result_index] = ADCBUF3;
+    reverse_detector_b_array[adc_result_index] = ADCBUF1;
+    reverse_detector_a_array[adc_result_index] = ADCBUF3;
     rf_amplifier_temperature_array[adc_result_index] = ADCBUF5;
   } else {
     power_level_average = ADCBUF8 + ADCBUFA + ADCBUFC + ADCBUFE;
@@ -554,12 +598,30 @@ void _ISRNOPSV _ADCInterrupt(void) {
   //_ASAM = 1; // Start Auto Sampling
 }
 
-volatile unsigned int power_target_centi_watts;
-volatile unsigned int total_forward_power_centi_watts;
+
+#define MINIMUM_POWER_TARGET            100           // 1 Watt
+#define FOLDBACK_POWER_PROGRAM          25000         // 250 Watts
 
 // PID Interrupt on TMR1 (100us)
 void _ISRNOPSV _T1Interrupt(void) {
-  power_target_centi_watts = ConvertProgramLevelToPowerCentiWatts(CalirbrateADCReading(adc_average_power_program));
+  /*
+    The pid functions provided by dsp.h use Q15 fractional data.
+    This represents fractional inputs/outputs from -1 to 1.
+    Our inputs to the PID come from an unipolar ADC.
+    The control output of the PID goes directly to a DAC.
+    In order for the PID control to work with our unsigned 16 bit data two changed must be made.
+    (1) Measured output must be converted from 16 bit data to Q(15).  This is easily done by shifting one bit to the right.
+        From to PIDs point of view we are just decreasing our resolution by 1 bit, not a problem here.
+    (2) Control output must be convereted so that it can iterface to our DAC.
+        The control output ranges from -1 to 1.  so perform the following logic.
+	If (control_output < 0) then (control_output = 0).
+	Multiply control_output by 2 (shift left 1 bit) to use the full range of the DAC.
+	NOTE: You must perform the math like this we because the PID will set the output to Zero at start.
+	If you shift the entire 16 bits to unsinged interger, 0 will become 0x7FFF and your control_output will start at 50%, not zero!!!!
+  */
+  unsigned int temp;
+  
+  power_target_centi_watts = ConvertProgramLevelToPowerCentiWatts(CalibrateADCReading(adc_average_power_program));
   
   if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
     // The RF output is enabled
@@ -575,21 +637,29 @@ void _ISRNOPSV _T1Interrupt(void) {
     PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
     forward_power_pid.target = 0;
   }
-
-  CalibrateADCReading(&forward_power_detector_A, AverageADC16(forward_detector_a_array));
-  CalibrateDetectorLevel(&forward_detector_A);
-  ConvertDetectorLevelToPowerCentiWatts(&forward_detector_A);
+  
+  CalibrateADCReading(&forward_power_detector_A, (AverageADC16(forward_detector_a_array)));
+  CalibrateDetectorLevel(&forward_power_detector_A);
+  ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_A);
   // DPARKER, there is no reason why these three functions shouldn't be a single step
   
   CalibrateADCReading(&forward_power_detector_B, AverageADC16(forward_detector_b_array));
-  CalibrateDetectorLevel(&forward_detector_B);
-  ConvertDetectorLevelToPowerCentiWatts(&forward_detector_B);
-
-  total_forward_power_centi_watts = forward_detector_B.power_reading_centi_watts + forward_detector_A.power_reading_centi_watts
-
+  CalibrateDetectorLevel(&forward_power_detector_B);
+  ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
+  // DPARKER, there is no reason why these three functions shouldn't be a single step
   
-  forward_power_pid.target = pid_power_target;
-  forward_power_pid.measure_output = forward_power;
-
-  DoETMPid(&forward_power_pid); // DPARKER need to write all the PID functions
+  total_forward_power_centi_watts = forward_power_detector_B.power_reading_centi_watts + forward_power_detector_A.power_reading_centi_watts;
+  
+  forward_power_PID.controlReference = (pid_power_target >> 1);
+  forward_power_PID.measuredOutput = (total_forward_power_centi_watts >> 1);
+  PID(&forward_power_PID);
+  
+  rf_amplifier_dac_output = forward_power_PID.controlOutput;
+  if (rf_amplifier_dac_output & 0x8000) {
+    rf_amplifier_dac_output = 0x0000;
+  }
+  rf_amplifier_dac_output = rf_amplifier_dac_output << 1;
+  
+  WriteLTC2656(&U6_LTC2656, rf_amplifier_dac_output, LTC2656_WRITE_AND_UPDATE_DAC_B);
 }
+

@@ -93,13 +93,16 @@
 
 #include <p30F6014a.h>
 #include <dsp.h>
-#include <i2c.h>
 #include <spi.h>
 #include <uart.h>
 #include <timer.h>
 #include <adc12.h>
-#include "Buffer64.h"
-#include "MCP23017.h"
+#include "A35997_PINS.h"
+#include "LTC2656.h"
+#include "ETM_BUFFER_BYTE_64.h"
+#include "ETM_DSP_FUNCTIONS.h"
+#include "serial_A35997.h"
+#include "faults_A35997.h"
 
 
 /* 
@@ -132,10 +135,10 @@
 
 
 /* ------------------------------ CLOCK AND TIMING CONFIGURATION ------------------------- */
-//#define FCY_CLK                    29495000      // 29.495 MHz
-//#define FCY_CLK_MHZ                29.495        // 29.495 MHz
-#define FCY_CLK                    10000000      // 10 MHz
-#define FCY_CLK_MHZ                10.000        // 10 MHz
+#define FCY_CLK                    29495000      // 29.495 MHz
+#define FCY_CLK_MHZ                29.495        // 29.495 MHz
+//#define FCY_CLK                    10000000      // 10 MHz
+//#define FCY_CLK_MHZ                10.000        // 10 MHz
 
 #define UART1_BAUDRATE             124000        // U1 Baud Rate
 
@@ -159,7 +162,7 @@
 #define A35997_SPI2STAT_VALUE (SPI_ENABLE & SPI_IDLE_CON & SPI_RX_OVFLOW_CLR)   
 
 
-#if FCY_CLK =  29495000
+#if FCY_CLK == 29495000
 // SPI1 Clock (divide by 4) 7.37MHz
 // SPI2 Clock (divide by 4) 7.37MHz
 #define A35997_SPI1CON_CLOCK (SEC_PRESCAL_1_1 & PRI_PRESCAL_4_1)
@@ -202,7 +205,7 @@
 */
 #define A35997_T2CON_VALUE             (T2_OFF & T2_IDLE_CON & T2_GATE_OFF & T2_PS_1_8 & T2_32BIT_MODE_OFF & T2_SOURCE_INT)
 #define A35997_TMR2_PERIOD_US          10000
-#define A35997_PR2_VALUE               (FCY_CLK_MHZ*A35997_PR2_ROLL_US/8)
+#define A35997_PR2_VALUE               (FCY_CLK_MHZ*A35997_TMR2_PERIOD_US/8)
 
 
 
@@ -260,7 +263,7 @@
 
 
 // DPARKER the ADC_SAMPLE_TIME Could Probably be shorter.  Should be fine with sample time of 1
-#if FCY_CLK =  29495000
+#if FCY_CLK ==  29495000
 #define A35997_ADCON3_VALUE (ADC_SAMPLE_TIME_3 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_10Tcy)
 
 #else

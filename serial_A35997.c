@@ -1,10 +1,4 @@
-#include "Serial.h"
-#include "A34760_PINS.h"
-#include "Buffer64.h"
-#include "A34760.h"
-#include "config.h"
-#include "faults.h"
-#include "Version.h"
+#include "serial_A35997.h"
 #include <libpic30.h>
 
 /*
