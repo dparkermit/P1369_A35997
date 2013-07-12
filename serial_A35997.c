@@ -1,5 +1,5 @@
 #include "serial_A35997.h"
-#include <libpic30.h>
+
 
 /*
   Serial Commands
@@ -31,6 +31,9 @@ unsigned int ReadFromRam(unsigned int ram_location);
 void SendCommand(unsigned char command_byte, unsigned char register_byte, unsigned int data_word);
 
 struct CommandStringStruct command_string;
+BUFFERBYTE64 uart1_input_buffer;
+BUFFERBYTE64 uart1_output_buffer;
+
 
 
 void DoSerialCommand(void) {
@@ -64,21 +67,21 @@ void LookForCommand(void) {
     4b) If the checksum fails, return to step 1     
   */
   
-  while ((command_string.data_state == COMMAND_BUFFER_EMPTY) && (Buffer64BytesInBuffer(&uart1_input_buffer) >= COMMAND_LENGTH)) {
+  while ((command_string.data_state == COMMAND_BUFFER_EMPTY) && (BufferByte64BytesInBuffer(&uart1_input_buffer) >= COMMAND_LENGTH)) {
     // Look for a command
-    read_byte = Buffer64ReadByte(&uart1_input_buffer);
+    read_byte = BufferByte64ReadByte(&uart1_input_buffer);
     if (read_byte == SYNC_BYTE_1) {
-      read_byte = Buffer64ReadByte(&uart1_input_buffer);
+      read_byte = BufferByte64ReadByte(&uart1_input_buffer);
       if (read_byte == SYNC_BYTE_2) {
-	read_byte = Buffer64ReadByte(&uart1_input_buffer);
+	read_byte = BufferByte64ReadByte(&uart1_input_buffer);
 	if (read_byte == SYNC_BYTE_3_RECEIVE) {
 	  // All of the sync bytes matched, this should be a valid command
-	  command_string.command_byte   = Buffer64ReadByte(&uart1_input_buffer);
-	  command_string.data_high_byte = Buffer64ReadByte(&uart1_input_buffer);
-	  command_string.data_low_byte  = Buffer64ReadByte(&uart1_input_buffer);
-	  command_string.register_byte  = Buffer64ReadByte(&uart1_input_buffer);
-	  crc                           = Buffer64ReadByte(&uart1_input_buffer);
-	  crc                           = (crc << 8) + Buffer64ReadByte(&uart1_input_buffer);
+	  command_string.command_byte   = BufferByte64ReadByte(&uart1_input_buffer);
+	  command_string.data_high_byte = BufferByte64ReadByte(&uart1_input_buffer);
+	  command_string.data_low_byte  = BufferByte64ReadByte(&uart1_input_buffer);
+	  command_string.register_byte  = BufferByte64ReadByte(&uart1_input_buffer);
+	  crc                           = BufferByte64ReadByte(&uart1_input_buffer);
+	  crc                           = (crc << 8) + BufferByte64ReadByte(&uart1_input_buffer);
 	  if (CheckCRC(crc)) {
 	    command_string.data_state = COMMAND_BUFFER_FULL;
 	  }
@@ -92,30 +95,28 @@ void LookForCommand(void) {
 void SendCommand(unsigned char command_byte, unsigned char register_byte, unsigned int data_word) {
   unsigned int crc;
   crc = MakeCRC(command_byte, register_byte, data_word);
-  Buffer64WriteByte(&uart1_output_buffer, SYNC_BYTE_1);
-  Buffer64WriteByte(&uart1_output_buffer, SYNC_BYTE_2);
-  Buffer64WriteByte(&uart1_output_buffer, SYNC_BYTE_3_SEND);
-  Buffer64WriteByte(&uart1_output_buffer, command_byte);
-  Buffer64WriteByte(&uart1_output_buffer, (data_word >> 8));
-  Buffer64WriteByte(&uart1_output_buffer, (data_word & 0x00FF));
-  Buffer64WriteByte(&uart1_output_buffer, register_byte);
-  Buffer64WriteByte(&uart1_output_buffer, (crc >> 8));
-  Buffer64WriteByte(&uart1_output_buffer, (crc & 0x00FF));
+  BufferByte64WriteByte(&uart1_output_buffer, SYNC_BYTE_1);
+  BufferByte64WriteByte(&uart1_output_buffer, SYNC_BYTE_2);
+  BufferByte64WriteByte(&uart1_output_buffer, SYNC_BYTE_3_SEND);
+  BufferByte64WriteByte(&uart1_output_buffer, command_byte);
+  BufferByte64WriteByte(&uart1_output_buffer, (data_word >> 8));
+  BufferByte64WriteByte(&uart1_output_buffer, (data_word & 0x00FF));
+  BufferByte64WriteByte(&uart1_output_buffer, register_byte);
+  BufferByte64WriteByte(&uart1_output_buffer, (crc >> 8));
+  BufferByte64WriteByte(&uart1_output_buffer, (crc & 0x00FF));
 
-  if ((!U1STAbits.UTXBF) && (Buffer64IsNotEmpty(&uart1_output_buffer))) {
+  if ((!U1STAbits.UTXBF) && (BufferByte64IsNotEmpty(&uart1_output_buffer))) {
     /*
       There is at least one byte available for writing in the outputbuffer and the transmit buffer is not full.
       Move a byte from the output buffer into the transmit buffer
       All subsequent bytes will be moved from the output buffer to the transmit buffer by the U1 TX Interrupt
     */
-    U1TXREG = Buffer64ReadByte(&uart1_output_buffer);
+    U1TXREG = BufferByte64ReadByte(&uart1_output_buffer);
   }
 }
 
 
 void ExecuteCommand(void) {
-  unsigned int itemp;
-  unsigned int vtemp;
   unsigned int data_word;
   unsigned int return_data_word;
   unsigned int return_command_byte;
@@ -128,7 +129,7 @@ void ExecuteCommand(void) {
   return_command_byte = command_string.command_byte;
   switch (command_string.command_byte) 
     {
-
+      /*
     case CMD_READ_RAM_VALUE:
       return_data_word = ReadFromRam(command_string.register_byte);
       break;
@@ -173,7 +174,7 @@ void ExecuteCommand(void) {
       last_known_action = LAST_ACTION_CLEAR_LAST_ACTION;
       processor_crash_count = 0;
       break;
-
+      */
     }
   
   // Echo the command that was recieved back to the controller
@@ -185,11 +186,11 @@ void ExecuteCommand(void) {
 
 
 unsigned int ReadFromRam(unsigned int ram_location) {
-  unsigned long temp_long;
   unsigned int data_return;
-  unsigned long long int temp_long_long;
+
   switch (ram_location) 
     {
+      /*
       // Fault information
     case RAM_READ_DEBUG_STATUS_REG:
       data_return = debug_status_register;
@@ -208,7 +209,7 @@ unsigned int ReadFromRam(unsigned int ram_location) {
       data_return = VERSION_NUMBER;
       break;
       
-      
+      */
       // Read Bedug Counters
 
     }  
@@ -248,7 +249,7 @@ unsigned char CheckCRC(unsigned int crc) {
 void _ISRNOPSV _U1RXInterrupt(void) {
   _U1RXIF = 0;
   while (U1STAbits.URXDA) {
-    Buffer64WriteByte(&uart1_input_buffer, U1RXREG);
+    BufferByte64WriteByte(&uart1_input_buffer, U1RXREG);
   }
 }
 
@@ -256,12 +257,12 @@ void _ISRNOPSV _U1RXInterrupt(void) {
 
 void _ISRNOPSV _U1TXInterrupt(void) {
   _U1TXIF = 0;
-  while ((!U1STAbits.UTXBF) && (Buffer64BytesInBuffer(&uart1_output_buffer))) {
+  while ((!U1STAbits.UTXBF) && (BufferByte64BytesInBuffer(&uart1_output_buffer))) {
     /*
       There is at least one byte available for writing in the outputbuffer and the transmit buffer is not full.
       Move a byte from the output buffer into the transmit buffer
     */
-    U1TXREG = Buffer64ReadByte(&uart1_output_buffer);
+    U1TXREG = BufferByte64ReadByte(&uart1_output_buffer);
   }
 }
 

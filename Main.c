@@ -6,7 +6,6 @@
 #include "A35997.h"
 
 
-
 /*
 DPARKER - AT SOME POINT WE WILL NEED TO READ CONFIGURATION DATA OUT OF EEPROM
 
@@ -81,16 +80,13 @@ _FGS(CODE_PROT_OFF);
 _FICD(PGD);
 
 
-
 int main(void) {
   // ReadAllEEpromToRAM();  // Ream all configuration from EEPROM into RAM
   
-
+  control_state = STATE_START_UP;
 
   while (1) {
-    if (PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) {
-      // The RF Output should be on
-    }
+    DoA35997StateMachine();
   }
 }
 

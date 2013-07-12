@@ -151,7 +151,8 @@
    --- SPI1 Port ---
    This SPI port is used to connect to the octal DAC
 */
-#define A35997_SPI1CON_VALUE  (FRAME_ENABLE_OFF & ENABLE_SDO_PIN & SPI_MODE16_ON & SPI_SMP_OFF & SPI_CKE_ON & SLAVE_ENABLE_OFF & CLK_POL_ACTIVE_HIGH & MASTER_ENABLE_ON)
+//#define A35997_SPI1CON_VALUE  (FRAME_ENABLE_OFF & ENABLE_SDO_PIN & SPI_MODE16_ON & SPI_SMP_OFF & SPI_CKE_ON & SLAVE_ENABLE_OFF & CLK_POL_ACTIVE_HIGH & MASTER_ENABLE_ON)
+#define A35997_SPI1CON_VALUE  (FRAME_ENABLE_OFF & ENABLE_SDO_PIN & SPI_MODE16_ON & SPI_SMP_ON & SPI_CKE_ON & SLAVE_ENABLE_OFF & CLK_POL_ACTIVE_HIGH & MASTER_ENABLE_ON)
 #define A35997_SPI1STAT_VALUE (SPI_ENABLE & SPI_IDLE_CON & SPI_RX_OVFLOW_CLR)   
 
 /*
@@ -224,27 +225,37 @@
    AN10 - Detector #3 Temperature - 6
    AN11 - Detector #4 Temperature - 7
    AN14 - Power Level From Cust   - 8 - This needs to be read with every other sample
+
+
+   BUF0 AN2 - Detector #4 (Reverse 2)  - 0
+   BUF1 AN3 - Detector #3 (Reverse 1)  - 1 
+   BUF2 AN6 - Amplifier Temperature    - 2
+   BUF3 AN8 - Detector #1 Temperature  - 4
+   BUF4 AN9 - Detector #2 Temperature  - 5
+   BUF5 AN10 - Detector #3 Temperature - 6
+   BUF6 AN11 - Detector #4 Temperature - 7
+   BUF7 AN14 - Power Level From Cust   - 8 - This needs to be read with every other sample
    
    
-   
+
    The internal ADC is set up to sample
-   (BUF0) AN14 - Power Level From Customer
-   (BUF1) AN2  - Detector #4 (Reverse B) - 0
-   (BUF2) AN14 - Power Level From Customer
-   (BUF3) AN3 - Detector #3 (Reverse A)  - 1 
-   (BUF4) AN14 - Power Level From Customer
-   (BUF5) AN6 - Amplifier Temperature    - 2
-   (BUF6) AN14 - Power Level From Customer
-   (BUF7) AN7 - Spare                    - 3
-   ------- Interrupt --------
-   (BUF8) AN14 - Power Level From Customer
-   (BUF9) AN8 - Detector #1 (Forward A) Temperature  - 4
-   (BUFA)AN14 - Power Level From Customer
-   (BUFB)AN9 - Detector #2 (Forward B) Temperature  - 5
-   (BUFC)AN14 - Power Level From Customer
-   (BUFD)AN10 - Detector #3 (Reverse A) Temperature - 6
-   (BUFE)AN14 - Power Level From Customer
-   (BUFF)AN11 - Detector #4 (Reverse B) Temperature - 7
+   (BUF0) AN2  - Detector #4 (Reverse B) - 0
+   (BUF1) AN14 - Power Level From Customer
+   (BUF2) AN3 - Detector #3 (Reverse A)  - 1 
+   (BUF3) AN14 - Power Level From Customer
+   (BUF4) AN6 - Amplifier Temperature    - 2
+   (BUF5) AN14 - Power Level From Customer
+   (BUF6) AN8 - Detector #1 (Forward A) Temperature  - 4
+   (BUF7) AN14 - Power Level From Customer
+   (BUF8) AN9 - Detector #2 (Forward B) Temperature  - 5
+   (BUF9) AN14 - Power Level From Customer
+   (BUFA) AN10 - Detector #3 (Reverse A) Temperature - 6
+   (BUFB) AN14 - Power Level From Customer
+   (BUFC) AN11 - Detector #4 (Reverse B) Temperature - 7
+   (BUFD) AN14 - Power Level From Customer
+   (BUFE) AN14 - Power Level From Customer
+   (BUFF) UNUSED
+
 
 */
 
@@ -252,25 +263,32 @@
 
 #define A35997_ADCON1_VALUE (ADC_MODULE_OFF & ADC_IDLE_STOP & ADC_FORMAT_INTG & ADC_CLK_AUTO & ADC_AUTO_SAMPLING_ON)
 
-//#define A35997_ADCON2_VALUE (ADC_VREF_AVDD_AVSS & ADC_SCAN_ON & ADC_SAMPLES_PER_INT_11 & ADC_ALT_BUF_OFF & ADC_ALT_INPUT_OFF)
-#define A35997_ADCON2_VALUE (ADC_VREF_EXT_EXT & ADC_SCAN_ON & ADC_SAMPLES_PER_INT_8 & ADC_ALT_BUF_ON & ADC_ALT_INPUT_ON)
+// A34760 #define A35997_ADCON2_VALUE (ADC_VREF_AVDD_AVSS & ADC_SCAN_ON & ADC_SAMPLES_PER_INT_11 & ADC_ALT_BUF_OFF & ADC_ALT_INPUT_OFF)
+// A35997 #define A35997_ADCON2_VALUE (ADC_VREF_EXT_EXT & ADC_SCAN_ON & ADC_SAMPLES_PER_INT_8 & ADC_ALT_BUF_ON & ADC_ALT_INPUT_ON)
+#define A35997_ADCON2_VALUE (ADC_VREF_EXT_EXT & ADC_SCAN_ON & ADC_SAMPLES_PER_INT_15 & ADC_ALT_BUF_OFF & ADC_ALT_INPUT_ON)
 
-#define A35997_ADCHS_VALUE  (ADC_CH0_POS_SAMPLEA_AN14 & ADC_CH0_NEG_SAMPLEA_VREFN & ADC_CH0_POS_SAMPLEA_AN14 & ADC_CH0_NEG_SAMPLEB_VREFN)
+//#define A35997_ADCHS_VALUE  (ADC_CH0_POS_SAMPLEA_AN14 & ADC_CH0_NEG_SAMPLEA_VREFN & ADC_CH0_POS_SAMPLEA_AN14 & ADC_CH0_NEG_SAMPLEB_VREFN)
+#define A35997_ADCHS_VALUE  (ADC_CH0_POS_SAMPLEA_AN2 & ADC_CH0_NEG_SAMPLEA_VREFN & ADC_CH0_POS_SAMPLEB_AN14 & ADC_CH0_NEG_SAMPLEB_VREFN)
 
 #define A35997_ADPCFG_VALUE (ENABLE_AN2_ANA & ENABLE_AN3_ANA & ENABLE_AN4_ANA & ENABLE_AN5_ANA & ENABLE_AN6_ANA & ENABLE_AN7_ANA & ENABLE_AN8_ANA & ENABLE_AN9_ANA & ENABLE_AN10_ANA & ENABLE_AN11_ANA & ENABLE_AN14_ANA)
 
-#define A35997_ADCSSL_VALUE (SKIP_SCAN_AN0 & SKIP_SCAN_AN1 & SKIP_SCAN_AN4 & SKIP_SCAN_AN5 & SKIP_SCAN_AN12 & SKIP_SCAN_AN13 & SKIP_SCAN_AN14 & SKIP_SCAN_AN15 )
+#define A35997_ADCSSL_VALUE (SKIP_SCAN_AN0 & SKIP_SCAN_AN1 & SKIP_SCAN_AN4 & SKIP_SCAN_AN5 & SKIP_SCAN_AN7 & SKIP_SCAN_AN12 & SKIP_SCAN_AN13 & SKIP_SCAN_AN15 )
+//#define A35997_ADCSSL_VALUE (SKIP_SCAN_AN0 & SKIP_SCAN_AN1 & SKIP_SCAN_AN4 & SKIP_SCAN_AN5 & SKIP_SCAN_AN6 & SKIP_SCAN_AN7 & SKIP_SCAN_AN8 & SKIP_SCAN_AN9 & SKIP_SCAN_AN10 & SKIP_SCAN_AN11 & SKIP_SCAN_AN12 & SKIP_SCAN_AN13 & SKIP_SCAN_AN15)
 
 
-// DPARKER the ADC_SAMPLE_TIME Could Probably be shorter.  Should be fine with sample time of 1
+// These settings generate a sample rate of 180 KHz
+// With 15 samples per interrupt this yields a sample rate on the individual signals of 12 KHz (96KHz on the program signal)
 #if FCY_CLK ==  29495000
-#define A35997_ADCON3_VALUE (ADC_SAMPLE_TIME_3 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_10Tcy)
+// Experiments find that we need a sample time of at least 2 conversion clocks for the reading to settle
+#define A35997_ADCON3_VALUE (ADC_SAMPLE_TIME_2 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_10Tcy)
 
 #else
 // FCY_CLK = 10000000
-#define A35997_ADCON3_VALUE (ADC_SAMPLE_TIME_3 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_7Tcy2)
+#define A35997_ADCON3_VALUE (ADC_SAMPLE_TIME_2 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_7Tcy2)
 
 #endif
+
+
 
 
 // With these settings, the effective sample rate is around 150K samples/sec
@@ -337,6 +355,8 @@ extern RF_DETECTOR forward_power_detector_B;
 extern RF_DETECTOR reverse_power_detector_A;
 extern RF_DETECTOR reverse_power_detector_B;
 
+extern RF_DETECTOR program_power_level;
+
 
 
 
@@ -364,7 +384,7 @@ extern RF_DETECTOR reverse_power_detector_B;
   --- Public Functions ---
 */
 
-void DoStateMachine(void);
+void DoA35997StateMachine(void);
 /*
   This is called to update the FSM
   The state is stored as a global variable so this function has no argument and returns no value
@@ -434,5 +454,6 @@ extern unsigned long EE_address_ps_magnetron_mode_B_config_in_EEPROM;
 extern unsigned long EE_address_pulse_counter_repository_in_EEPROM;
 extern unsigned long EE_address_control_loop_cal_data_in_EEPROM;
 
+extern unsigned char control_state;
 
 #endif

@@ -24,7 +24,8 @@ _AverageADC128:
 	mov		W0, W4		; move source address
 	CLR		A		; 0 40 bit Acc
 
-ACC_S:	REPEAT	#127			; add em all up
+ADCAVG128_S:
+	REPEAT	#127			; add em all up
 	ADD		[W4++], #4, A ; signed 16 add to ACCA (right shift 4 bits)
 	                                      ; The data that we want is now stored in the 15 LSB of ACCAH and the 1 MSB of ACCAL
 	                                      ; If we shift the data left one bit and call SAC.R the data will be bashed because
@@ -43,11 +44,12 @@ ACC_S:	REPEAT	#127			; add em all up
 	
         .global  _AverageADC16
         .text
-_AverageADC128:
+_AverageADC16:
 	mov		W0, W4		; move source address
 	CLR		A		; 0 40 bit Acc
 
-ACC_S:	REPEAT	#15			; add em all up
+ADCAVG16:
+	REPEAT	#15			; add em all up
 	ADD		[W4++], #5, A ; signed 16 add to ACCA (right shift 5 bits)
 	                                      ; The data that we want is now stored in the 15 LSB of ACCAH and the 1 MSB of ACCAL
 	                                      ; If we shift the data left one bit and call SAC.R the data will be bashed because

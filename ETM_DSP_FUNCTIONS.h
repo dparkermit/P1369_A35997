@@ -9,7 +9,7 @@ unsigned int AverageADC128(unsigned int* array_to_avg);
   If the array is not at least 128 unsigned integers long, bad things will happen
 */
 
-unsigned int AverageADC16(unsigned int array_to_avg);
+unsigned int AverageADC16(unsigned int* array_to_avg);
 /*
   This function takes a pointer to an array of 16 bit adc values and averages.
   The result is a 16 bit number.
@@ -33,6 +33,7 @@ unsigned int RCFilterNTau(unsigned int previous_value, unsigned int reading, uns
   If "previous_value" is zero, this is a special case where the output will be set to reading.  
   This is so that when this is first called (previous value = zero), the filtered value will not start at zero (which could take a long time to reach correct value)
 */
+#define RC_FILTER_2_TAU   1
 #define RC_FILTER_4_TAU   2
 #define RC_FILTER_8_TAU   3
 #define RC_FILTER_16_TAU  4

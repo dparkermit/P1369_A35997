@@ -4,6 +4,15 @@ unsigned int fault_status_register;               // Register that contains the 
 unsigned int fault_latched_register;              // Register that latches faults.
 
 
+
+void ResetAllFaults(void) {
+  // DPARKER WRITE THIS
+}
+
+void RollOffCalculation(void) {
+  // DPARKER WRITE THIS
+}
+
 void UpdateFaults(void) {
 
   // Check that power supply 1 is working
@@ -27,7 +36,7 @@ void UpdateFaults(void) {
   }
 
   // Check that the RF Amplifier is operating within acceptable temperature range
-  if () {
+  if (1) {
    
     
   } else {

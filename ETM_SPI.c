@@ -178,6 +178,7 @@ unsigned long SendAndReceiveSPI(unsigned int data_word, unsigned char spi_port) 
       }
     }
     while(spi_bus_status == SPI_DATA_SENT) {
+      loop_counter++;
       if (loop_counter > etm_spi_loop_timeout) {
 	// There was a timeout of the data read, this is effectively a fault
 	spi_bus_status = SPI_BUS_TIMEOUT;
@@ -187,7 +188,9 @@ unsigned long SendAndReceiveSPI(unsigned int data_word, unsigned char spi_port) 
       } else if (_SPI1IF) {
 	// Data  been received in the buffer, read the data from the return buffer
 	spi_bus_status = SPI_DATA_RECEIVED;
-      }    
+      } else if (SPI1STATbits.SPIRBF) {
+	spi_bus_status = SPI_DATA_RECEIVED;
+      }   
     }
     if (spi_bus_status == SPI_DATA_RECEIVED) {
       return_data = (0x0000FFFF & SPI1BUF);
@@ -218,6 +221,7 @@ unsigned long SendAndReceiveSPI(unsigned int data_word, unsigned char spi_port) 
       }
     }
     while(spi_bus_status == SPI_DATA_SENT) {
+      loop_counter++;
       if (loop_counter > etm_spi_loop_timeout) {
 	// There was a timeout of the data read, this is effectively a fault
 	spi_bus_status = SPI_BUS_TIMEOUT;

@@ -1,5 +1,7 @@
-#ifndef __SERIAL_H
-#define __SERIAL_H
+#ifndef __SERIAL_A35997_H
+#define __SERIAL_A35997_H
+
+#include "A35997.h"
 
 // Command List
 
@@ -219,6 +221,8 @@ struct CommandStringStruct {
 };
 
 extern struct CommandStringStruct command_string;
+extern BUFFERBYTE64 uart1_input_buffer;
+extern BUFFERBYTE64 uart1_output_buffer;
 
 void DoSerialCommand(void);
 
