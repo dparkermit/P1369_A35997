@@ -57,8 +57,8 @@
 
 
 // Front Panel LED Output Pins
-#define FRONT_PANEL_LED_ON                   1
-#define FRONT_PANEL_LED_OFF                  0
+#define OLL_FRONT_PANEL_LED_ON               1
+#define OLL_FRONT_PANEL_LED_OFF              0
 
 #define PIN_FRONT_PANEL_LED_GREEN            _LATD10
 #define TRIS_PIN_FRONT_PANEL_LED_GREEN       _TRISD10

@@ -12,6 +12,10 @@
 const unsigned int detector_voltage_to_power_look_up_table[4096] = {DETECTOR_LOOK_UP_TABLE_VALUES};
 
 
+unsigned int ConvertAmplifierTemperatureADCtoDeciDegreesK(unsigned int adc_reading); 
+unsigned int ConvertDetectorTemperatureADCtoDeciDegreesK(unsigned int adc_reading);
+
+
 // Control structers for the thyratron heater PID loops
 tPID pid_forward_power;
 fractional pid_forward_power_controlHistory[3] __attribute__ ((section (".ybss, bss, ymemory")));
@@ -39,14 +43,7 @@ RF_DETECTOR reverse_power_detector_B;
 RF_DETECTOR program_power_level;
 
 
-unsigned int reverse_detector_a_level = 1;
-unsigned int reverse_detector_b_level = 1;
-
 unsigned int rf_amplifier_temp = 1;
-unsigned int fwd_rf_det_a_temp = 1;
-unsigned int fwd_rf_det_b_temp = 1;
-unsigned int rev_rf_det_a_temp = 1;
-unsigned int rev_rf_det_b_temp = 1;
 
 volatile unsigned int power_program = 1;
 volatile unsigned char adc_result_index;
@@ -86,6 +83,9 @@ unsigned char software_rf_disable = 1;
 
 
 unsigned char led_pulse_count;
+unsigned char front_panel_led_startup_flash_couter;
+unsigned char front_panel_led_pulse_count;
+unsigned char front_panel_led_state;
 unsigned char start_reset_process;
 
 
@@ -99,14 +99,12 @@ void FilterADCs(void);
 
 unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level);
 
-void SetFrontPanelLedState(unsigned char led_state);
 #define SOLID_GREEN                1
 #define SOLID_BLUE                 2
 #define FLASH_BLUE                 3
 #define SOLID_RED                  4
 #define FLASH_RED                  5
-
-
+#define FLASH_ALL_SERIES           6
 
 #define DPARKER_LED_FLASH_COMPLETE 1
 
@@ -120,6 +118,9 @@ void DoA35997StateMachine(void) {
     break;
 
   case STATE_FLASH_LEDS_AT_STARTUP:
+    front_panel_led_startup_flash_couter = 0;
+    front_panel_led_state = FLASH_ALL_SERIES;
+    front_panel_led_pulse_count = 0;
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
     while (control_state == STATE_FLASH_LEDS_AT_STARTUP) {
       DoSerialCommand();
@@ -128,7 +129,7 @@ void DoA35997StateMachine(void) {
 	control_state = STATE_FAULT_OVER_TEMP;
       } else if (FaultCheckGeneralFault()) {
 	control_state = STATE_FAULT_GENERAL_FAULT;
-      } else if (DPARKER_LED_FLASH_COMPLETE) {
+      } else if (front_panel_led_startup_flash_couter > FRONT_PANEL_LED_NUMBER_OF_FLASHES_AT_STARTUP) {
 	control_state = STATE_RF_OFF; 
       }
     }
@@ -138,7 +139,8 @@ void DoA35997StateMachine(void) {
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
     software_foldback_mode_enable = 0;
     software_rf_disable = 0; 
-    SetFrontPanelLedState(SOLID_GREEN);
+    front_panel_led_state = SOLID_GREEN;
+    front_panel_led_pulse_count = 0;
     // We don't want to wait for the software loop to start the amplifier so this must be pre-set to the on condition.
     while (control_state == STATE_RF_OFF) {
       DoSerialCommand();
@@ -158,7 +160,8 @@ void DoA35997StateMachine(void) {
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
     software_foldback_mode_enable = 0;
     software_rf_disable = 0;
-    SetFrontPanelLedState(SOLID_BLUE);
+    front_panel_led_state = SOLID_BLUE;
+    front_panel_led_pulse_count = 0;
     while (control_state == STATE_RF_ON) {
       DoSerialCommand();
       Do10msTicToc();
@@ -230,10 +233,6 @@ void DoA35997StateMachine(void) {
 
 void DoA35997StartUp(void) {
   
-  // DPARKER Initialize PID
-  
-
-
   // --------- BEGIN IO PIN CONFIGURATION ------------------
   
   // Initialize the output latches before setting TRIS
@@ -250,9 +249,9 @@ void DoA35997StartUp(void) {
   PIN_TEST_LED_3 = TEST_LED_OFF;
   PIN_TEST_LED_4 = TEST_LED_OFF;
 
-  PIN_FRONT_PANEL_LED_GREEN = FRONT_PANEL_LED_OFF;
-  PIN_FRONT_PANEL_LED_BLUE = FRONT_PANEL_LED_OFF;
-  PIN_FRONT_PANEL_LED_RED = FRONT_PANEL_LED_OFF;
+  PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+  PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+  PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
 
   PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
   PIN_RS422_DE = OLL_PIN_RS422_DE_ENABLE_TRANSMIT;
@@ -358,14 +357,13 @@ void DoA35997StartUp(void) {
 
 
   // Initialize the PID structure
-  // DPARKER move parameters to H file
   pid_forward_power.abcCoefficients = &pid_forward_power_abcCoefficient[0];    /*Set up pointer to derived coefficients */
   pid_forward_power.controlHistory = &pid_forward_power_controlHistory[0];     /*Set up pointer to controller history samples */
 
   PIDInit(&pid_forward_power);                                                    /*Clear the controler history and the controller output */
-  pid_forward_power_kCoeffs[0] = Q15(0.02);
-  pid_forward_power_kCoeffs[1] = Q15(0.08);
-  pid_forward_power_kCoeffs[2] = Q15(0.08);
+  pid_forward_power_kCoeffs[0] = Q15(POWER_PID_P_COMPONENT);
+  pid_forward_power_kCoeffs[1] = Q15(POWER_PID_I_COMPONENT);
+  pid_forward_power_kCoeffs[2] = Q15(POWER_PID_D_COMPONENT);
   PIDCoeffCalc(&pid_forward_power_kCoeffs[0], &pid_forward_power);             /*Derive the a,b, & c coefficients from the Kp, Ki & Kd */
 
 
@@ -448,7 +446,7 @@ void DoA35997StartUp(void) {
 
    (1) Data is read by ADC (internal or external and stored in a circular buffer
    (2) The circular buffer is averaged (by AverageADC128 or AverageADC16 deppending upon the buffer type)
-   (3 - ONLY SLOW SIGNALS) - The averaged result is low pass filtered
+   (3) (ONLY SLOW SIGNALS) - The averaged result is low pass filtered
    (4) The ADCReading is Calibrated for offset & gain (offset & gain are temperature compensated) -> Stored as RF_DETECTOR.adc_reading_calibrated
    (5) This value has the RF detector calibration applied (This must be done per device over temperature) -> Stored as RF_DETECTOR.detector_level_calibrated
    (6) This value is converted into centi_watts via a 12 bit lookup table -> Stored as power_reading_centi_watts
@@ -456,13 +454,35 @@ void DoA35997StartUp(void) {
 */
 
 void CalibrateADCReading(RF_DETECTOR* ptr_rf_det, unsigned int adc_reading) {
-  ptr_rf_det->adc_reading_calibrated = adc_reading;
-  // DPARKER - Need to do calibration
+  unsigned int cal_reading;
+  unsigned int offset;
+  unsigned int cal_gain;
+  cal_gain = ptr_rf_det->adc_cal_gain;
+  cal_gain += ptr_rf_det->adc_cal_gain_thermal_adjust * (ptr_rf_det->adc_temperature - 323);
+  cal_reading = ETMScale16Bit(adc_reading, cal_gain, 1);
+  offset = ptr_rf_det->adc_cal_offset;
+  offset += ptr_rf_det->adc_cal_offset_thermal_adjust * (ptr_rf_det->adc_temperature - 323);
+  if (offset >= 0) {
+    if ((0xFFFF - offset) <= cal_reading) {
+      // adding these together would cause an overflow
+      cal_reading = 0xFFFF;
+    } else {
+      cal_reading += offset;
+    }
+  } else {
+    if ((0x0000 - offset) >= cal_reading) {
+      // adding this together would cause a negative overflow
+      cal_reading = 0x0000;
+    } else {
+      cal_reading += offset;
+    }
+  } 
+  ptr_rf_det->adc_reading_calibrated = cal_reading;
 }
 
 void CalibrateDetectorLevel(RF_DETECTOR* ptr_rf_det) {
   ptr_rf_det->detector_level_calibrated = ptr_rf_det->adc_reading_calibrated;
-  // DPARKER - Need to do calibration
+  // DPARKER - Need to do calibration . . . Also need to figure out how to do calibration
 }
 
 void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* ptr_rf_det) {
@@ -491,23 +511,13 @@ void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* ptr_rf_det) {
   ptr_rf_det->power_reading_centi_watts = power;
 }
 
-
 unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level) {
-  unsigned long data;
-  unsigned int return_data;
-
-
   // 10V program = 530 Watts
   // Input scalling = V_in / 5
   // 2V = 530 Watts
   // 0xFFFF = 542.72 Watts = 54272 Centi Watts
   // Need to multiply by 54272 and shit right 16 bits
-
-  data = program_level;
-  data *= 54272;
-  data >>= 16;
-  return_data = data;
-  return return_data;
+  return ETMScale16Bit(program_level, PROGRAM_LEVEL_TO_CENTI_WATTS_SCALE_FACTOR, 0);
 }
 
 void Do10msTicToc(void) {
@@ -516,7 +526,7 @@ void Do10msTicToc(void) {
   if (_T2IF) {
     _T2IF = 0;
     //10ms roll has occured
-
+    
     // Flash LED 1 on the control board
     led_pulse_count = ((led_pulse_count + 1) & 0b00001111);
     if (led_pulse_count == 0) {
@@ -528,70 +538,143 @@ void Do10msTicToc(void) {
       }  
     }
     
+    // Handle to front panel LED state
+    front_panel_led_pulse_count = ((front_panel_led_pulse_count + 1) & 0b01111111);
+    // this will roll over every 10ms * 2^7 = 1.28 seconds, this is the LED period
+    switch(front_panel_led_state) {
+      
+    case SOLID_GREEN:
+      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_ON;
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+      break;
+      
+    case SOLID_BLUE:
+      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+      break;
+      
+    case FLASH_BLUE:
+      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
 
-    // ----------- Fault Reset Logic --------- //
-    // Faults are reset on a positive transition of the PIN_RF_ENABLE Signal
-    if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (start_reset_process)) {
-      ResetAllFaults();
+      if ((front_panel_led_pulse_count & 0b01000000) == 0) {
+	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
+      } else {
+	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+      }
+      break;
+
+    case SOLID_RED:
+      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
+      break;
+      
+    case FLASH_RED:
+      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+
+      if ((front_panel_led_pulse_count & 0b01000000) == 0) {
+	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
+      } else {
+	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+      }
+      break;
+      
+    case FLASH_ALL_SERIES:
+      if (front_panel_led_pulse_count == 1) {
+	front_panel_led_startup_flash_couter++;
+      }
+      if (front_panel_led_pulse_count <= 42) {
+	PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_ON;
+	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+      } else if (front_panel_led_pulse_count <= 84) {
+	PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
+	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+      } else {
+	PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
+      }
     }
-    if (PIN_RF_ENABLE == !ILL_PIN_RF_ENABLE_ENABLED) {
-      // Start the Reset Process
-      start_reset_process = 1;
-    } else {
-      start_reset_process = 0;
-    }
-    // ResetSPI1(); // ResetSPI(2) // DPARKER - This may be requried to fix bit errors in the SPI bus
-    
-    
 
-    FilterADCs();  // Read Data from the DAC arrays, average, and filter
-    
-    
-    UpdateFaults();  // Update all the fault registers.  Note this must only happen once every 10ms because some faults are timed
-  
-    RollOffCalculation();  // DPARKER FIGURE THIS OUT
-
-  } 
+  }
 }
- 
- 
- 
+
+
+
+
+unsigned int ConvertAmplifierTemperatureADCtoDeciDegreesK(unsigned int adc_reading){
+  unsigned int temperature;
+  /*
+    25 Deg V = 750mV
+    +/- 10mV per deg C
+    0x0000 = 0V = -50 C = 223 K
+
+    Deg K = 223 + V_adc/320
+    Deci Deg K = (223 + V_adc/320)*10
+    = 2230 + V_adc/32
+  */
+  return (2230 + (adc_reading)>>5);
+}
+
+unsigned int ConvertDetectorTemperatureADCtoDeciDegreesK(unsigned int adc_reading) {
+  /*
+    The detectors put out 2mv per Deg K
+    0xFFFF = 2.048 volts
+    To converter to deg K, just divide by 32
+    Then multiply by 10 to get deci Deg K
+  */
+  return ETMScale16Bit(adc_reading, DETECTOR_TEMPERATURE_ADC_READING_TO_DECI_DEGREES_K, 0);
+}
+
+
 void FilterADCs(void) {
   unsigned int averaged_adc_reading;
-  // Forward Detector A and B are read by the external ADC and filtered by the SPI Interrupt because their updated values are needed immediately
-  // Power Level Program from the customer is read by the internal ADC and filtered by the internal ADC because their updated values are needed immediately
+
+  /*
+
+    Forward Detector A and B are read by the external ADC and filtered by the SPI Interrupt because their updated values are needed immediately
+    Power Level Program from the customer is read by the internal ADC and filtered by the internal ADC because their updated values are needed immediately
   
-  // Reverse Detector A and B - Do these need to be managed in real life or is 10 Hz (10ms x8 tau) fast enough?
+    Reverse Detector A and B - Do these need to be managed in real life or is 10 Hz (10ms x8 tau) fast enough?
   
-  // rf amplifier temperature & all 4 detector temperatures
-  // These are averaged over 128 samples then low pass filtered
-  // The reverse power detector data is averaged and low pass filtered (at a higher frequency)
+    rf amplifier temperature & all 4 detector temperatures
+    These are averaged over 128 samples then low pass filtered
+    The reverse power detector data is averaged and low pass filtered (at a higher frequency)
+  */
+  
   averaged_adc_reading = AverageADC128(rf_amplifier_temperature_array);
+  temperature_reading = ConvertAmplifierTemperatureADCtoDeciDegreesK(averaged_adc_reading);
   rf_amplifier_temp = RCFilterNTau(rf_amplifier_temp, averaged_adc_reading, RC_FILTER_64_TAU);
 
   averaged_adc_reading = AverageADC128(fwd_rf_det_a_temperature_array);
-  fwd_rf_det_a_temp = RCFilterNTau(fwd_rf_det_a_temp, averaged_adc_reading, RC_FILTER_64_TAU);
+  temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
+  forward_power_detector_A.detector_temperature = RCFilterNTau(forward_power_detector_A.detector_temperature, temperature_reading, RC_FILTER_64_TAU);
 
   averaged_adc_reading = AverageADC128(fwd_rf_det_b_temperature_array);
-  fwd_rf_det_b_temp = RCFilterNTau(fwd_rf_det_b_temp, averaged_adc_reading, RC_FILTER_64_TAU);
-  
-  averaged_adc_reading = AverageADC128(rev_rf_det_a_temperature_array);
-  rev_rf_det_a_temp = RCFilterNTau(rev_rf_det_a_temp, averaged_adc_reading, RC_FILTER_64_TAU);
+  temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
+  forward_power_detector_B.detector_temperature = RCFilterNTau(forward_power_detector_B.detector_temperature, temperature_reading, RC_FILTER_64_TAU);
 
+  averaged_adc_reading = AverageADC128(rev_rf_det_a_temperature_array);
+  temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
+  reverse_power_detector_A.detector_temperature = RCFilterNTau(reverse_power_detector_A.detector_temperature, temperature_reading, RC_FILTER_64_TAU);
+  
   averaged_adc_reading = AverageADC128(rev_rf_det_b_temperature_array);
-  rev_rf_det_b_temp = RCFilterNTau(rev_rf_det_b_temp, averaged_adc_reading, RC_FILTER_64_TAU);
+  temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
+  reverse_power_detector_B.detector_temperature = RCFilterNTau(reverse_power_detector_B.detector_temperature, temperature_reading, RC_FILTER_64_TAU);
   
   averaged_adc_reading = AverageADC128(reverse_detector_a_array);
-  reverse_detector_a_level = RCFilterNTau(reverse_detector_a_level, averaged_adc_reading, RC_FILTER_8_TAU);
-
+  // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
+  reverse_power_detector_A.detector_level_calibrated = RCFilterNTau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading, RC_FILTER_8_TAU);
+  
   averaged_adc_reading = AverageADC128(reverse_detector_b_array);
-  reverse_detector_b_level = RCFilterNTau(reverse_detector_b_level, averaged_adc_reading, RC_FILTER_8_TAU);
-
-}
-
-
-void SetFrontPanelLedState(unsigned char led_state) {
-  // DPARKER WRITE THIS SUB
+  // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
+  reverse_power_detector_B.detector_level_calibrated = RCFilterNTau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading, RC_FILTER_8_TAU);
 }
 
 
@@ -728,12 +811,10 @@ void _ISRNOPSV _T1Interrupt(void) {
   CalibrateADCReading(&forward_power_detector_A, (AverageADC16(forward_detector_a_array)));
   CalibrateDetectorLevel(&forward_power_detector_A);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_A);
-  // DPARKER, there is no reason why these three functions shouldn't be a single step
   
   CalibrateADCReading(&forward_power_detector_B, AverageADC16(forward_detector_b_array));
   CalibrateDetectorLevel(&forward_power_detector_B);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
-  // DPARKER, there is no reason why these three functions shouldn't be a single step
   
   total_forward_power_centi_watts = forward_power_detector_B.power_reading_centi_watts + forward_power_detector_A.power_reading_centi_watts;
 
@@ -762,9 +843,9 @@ void _ISRNOPSV _AddressError(void) {
 }
 
 
-// DPARKER THIS FUNCTION FOR DEBUGGING ONLY
+// THIS FUNCTION FOR DEBUGGING ONLY
 void _ISRNOPSV _DefaultInterrupt(void) {
   Nop();
   Nop();
-  //__asm__ ("Reset");
+  __asm__ ("Reset");
 }

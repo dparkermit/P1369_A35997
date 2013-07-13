@@ -103,6 +103,7 @@
 #include "ETM_DSP_FUNCTIONS.h"
 #include "serial_A35997.h"
 #include "faults_A35997.h"
+#include "A35997_CONFIG.h"
 
 
 /* 
@@ -333,15 +334,18 @@
 
 typedef struct {
   unsigned int adc_reading_calibrated;                  // RAM - This is the adc_reading after digital filtering and adc calibration
-  unsigned int control_board_temperature;               // This is the temperature of the control board used adjust the adc reading. 
+  unsigned int adc_temperature;               // This is the temperature of the control board used adjust the adc reading. 
   unsigned int adc_cal_gain;                            // EEPROM CONSTANT - Used to calibrate the board for gain errors (Resistor tolerances, Gain stage erros, dac gain, ect)
+                                                        // The constant is a 16 bit range from 0->2 (or 2 minus (1 16 bit LSB))
   signed int adc_cal_gain_thermal_adjust;               // EEPROM_CONSTANT - Used to calibrate the previous value for thermal changes from 50*C
   signed int adc_cal_offset;                            // EEPROM CONSTANT - Used to calibrate the board for DC offsets. (adc offset, op-amp offsets)
   signed int adc_cal_offset_thermal_adjust;             // EEPROM_CONSTANT - Used to calibrate the previous value for thermal changes from 50*C
 
-  unsigned int detector_temperature;                    // RAM - This is the current temperature of the detector (in C) as determined from the ADC reading.
+  unsigned int detector_temperature;                    // RAM - This is the current temperature of the detector (in K) as determined from the ADC reading.
+                                                        // This adc reading is not calibrated
   unsigned int detector_level_calibrated;               // RAM - calibrats the adc reading for the detector device and temperature characteristics
                                                         // DPARKER, not sure how this is going to be implemented yet.  Probably a table with offset/ramp from different power ranges
+                                                        // The reverse detectors do not bother to calibrate the level
 
   unsigned int power_reading_centi_watts;               // RAM - This is detector_level_calibrated converted to watts.
 
@@ -455,5 +459,8 @@ extern unsigned long EE_address_pulse_counter_repository_in_EEPROM;
 extern unsigned long EE_address_control_loop_cal_data_in_EEPROM;
 
 extern unsigned char control_state;
+
+
+#define FRONT_PANEL_LED_NUMBER_OF_FLASHES_AT_STARTUP                 3
 
 #endif

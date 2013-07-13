@@ -25,6 +25,14 @@ unsigned int MakeScale13Q3(unsigned int num, unsigned int den);
 unsigned int Scale16Bit(unsigned int value, unsigned int num, unsigned int den);  // DPARKER - this needs more descriptive name
 
 
+unsigned int ETMScale16Bit(unsigned int value, unsigned int fractional_multiplier, unsigned int shift_left_bits);
+/*
+  This is a fast 16 bit scale function - 9 cycles plus call cycles
+  This scales "value" by "fractional_multiplier" and then shift the results left "shift_left_bits"
+  The total scale factor = fractional_multiplier * 2^shift_left_bits.
+  fractional_multiplier has range 0-.999985 so to get a gain of exactly 1 use fractional_multiplier = .5(0x8000) and shift_left_bits = 1;
+*/
+
 unsigned int RCFilterNTau(unsigned int previous_value, unsigned int reading, unsigned char FILTER_TAU_BITS);
 /*
   This performs a fast "almost RC" filter where Tau is 2^FILTER_TAU_BITS samples.
@@ -47,4 +55,5 @@ unsigned int RCFilterNTau(unsigned int previous_value, unsigned int reading, uns
 extern unsigned int saturation_scale13Q3_count;
 extern unsigned int saturation_makescale13Q3_count;
 extern unsigned int saturation_scale16_count;
+extern unsigned int etm_scale16bit_saturation_count;
 #endif

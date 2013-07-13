@@ -11,8 +11,10 @@
 	.global _saturation_scale13Q3_count
 	_saturation_makescale13Q3_count:	.space 2
 	.global _saturation_makescale13Q3_count
-	_saturation_scale16_count:	.space 2
+	_saturation_scale16_count:		.space 2
 	.global _saturation_scale16_count
+	_etm_scale16bit_saturation_count:	.space 2
+	.global _etm_scale16bit_saturation_count
 .text
 
 
@@ -217,6 +219,36 @@ _RCFilterNTau_AdjustDone:
 
 
 
+
+	;; -------------------------------------------------------------------------
+	
+	.global  _ETMScale16Bit
+	.text
+_ETMScale16Bit:
+	;; w0 is value to get scaled
+	;; w1 is 16 bit fractional scaler (0->0xFFFF(.999985))
+	;; w2 is number of bits to multiply the result by
+
+	SUBR		W2, #16, W3 	; This is the number of bits to shift right the LSW
+	MUL.UU 		W0,W1,W4 	; Multiply W0 by W1 and store in W4:W5, MSW is stored in W5
+	SL		W5,W2,W0	; Shift W5 Left by [W2] (this is the multiplier) and store results in W0 
+	LSR		W4,W3,W1	; Shift W4 Right by [W3] (this is the multiplier) and store results in W1
+	IOR		W0,W1,W0	; OR W0 with W1 and store in W0, this is the result of scale
+	
+	;; Need to check for overflow.  There is not a carry or status bit that does this
+	LSR		W5,W3,W1 	; If this result is not zero, then we have an overflow 
+	CP0 		W1
+	BRA		Z, _ETMScale16bit_no_overflow
+
+	;; There was an overflow in the Math.  
+	;; Increment the overflow counter and set the result to 0xFFFF
+	INC		_etm_scale16bit_saturation_count
+	MOV		#0xFFFF, W0
+_ETMScale16bit_no_overflow:	
+
+	RETURN
+
+	
 
 
 
