@@ -20,7 +20,7 @@
   Assume an average execution cycle of 1mS and 9 bytes per command.  A command rate of 72 K Baund can be sustained. (57.6 K Baud Standard will work)
   
   Assume an average execution cycle of 500uS and 9 bytes per command, A command rate of 144 K Baud can be sustained (115.2 K Baud Standard should be safe) 
-
+g
 */
 
 void LookForCommand(void);
@@ -40,13 +40,15 @@ void DoSerialCommand(void) {
   /* 
      Look for a command and execute it.
   */
-  
+
   if (command_string.data_state != COMMAND_BUFFER_FULL) {
     LookForCommand();
   }
+  
   if (command_string.data_state == COMMAND_BUFFER_FULL) {
     ExecuteCommand();
   }
+  
 }
 
 
@@ -129,57 +131,14 @@ void ExecuteCommand(void) {
   return_command_byte = command_string.command_byte;
   switch (command_string.command_byte) 
     {
-      /*
+      
     case CMD_READ_RAM_VALUE:
       return_data_word = ReadFromRam(command_string.register_byte);
       break;
-
-    case CMD_SET_MAGNET_PS_CAL_DATA:
-      ps_magnet_config_ram_copy[command_string.register_byte] = data_word;
-      break;
-      
-    case CMD_READ_MAGNET_PS_CAL_DATA:
-      return_data_word = ps_magnet_config_ram_copy[command_string.register_byte];
-      break;
-      
-    case CMD_SAVE_MAGNET_PS_CAL_DATA_TO_EEPROM:
-      _wait_eedata();
-      _erase_eedata(EE_address_ps_magnet_config_in_EEPROM, _EE_ROW);
-      _wait_eedata();
-      _write_eedata_row(EE_address_ps_magnet_config_in_EEPROM, ps_magnet_config_ram_copy);
-      break;
-
-    case CMD_SET_MAGNETRON_FILAMENT_VOLTAGE:
-      vtemp = data_word;
-      itemp = GenerateFilamentIprog(vtemp);
-      SetPowerSupplyTarget(&ps_filament, vtemp, itemp);
-      ps_filament_config_ram_copy[EEPROM_V_SET_POINT] = ps_filament.v_command_set_point;
-      ps_filament_config_ram_copy[EEPROM_I_SET_POINT] = ps_filament.i_command_set_point;
-      _wait_eedata();
-      _erase_eedata(EE_address_ps_filament_config_in_EEPROM, _EE_ROW);
-      _wait_eedata();
-      _write_eedata_row(EE_address_ps_filament_config_in_EEPROM, ps_filament_config_ram_copy);
-      break;
-
-    case CMD_CLEAR_PROCESSOR_RESET_DATA:
-      // DPARKER using this command to reset "reset data"
-      debug_status_register = 0;
-      _POR = 0;
-      _EXTR = 0;
-      _SWR = 0;
-      _BOR = 0;
-      _TRAPR = 0;
-      _WDTO = 0;
-      _IOPUWR = 0;
-      last_known_action = LAST_ACTION_CLEAR_LAST_ACTION;
-      processor_crash_count = 0;
-      break;
-      */
     }
   
   // Echo the command that was recieved back to the controller
   SendCommand(return_command_byte, command_string.register_byte, return_data_word);
-  
   command_string.data_state = COMMAND_BUFFER_EMPTY;
 }
 
@@ -190,27 +149,90 @@ unsigned int ReadFromRam(unsigned int ram_location) {
 
   switch (ram_location) 
     {
-      /*
-      // Fault information
-    case RAM_READ_DEBUG_STATUS_REG:
-      data_return = debug_status_register;
-      break;
 
-    case RAM_READ_FAULT_MAGNETRON_FAULT_REG:
-      data_return = faults_magnetron_fault_reg;
-      break;
-
-      // Read Status
     case RAM_READ_STATE:
       data_return = control_state;
       break;
-      
+
     case RAM_READ_VERSION:
-      data_return = VERSION_NUMBER;
+      data_return = A35997_SOFTWARE_VERSION;
+      break;
+    
+    case RAM_READ_FORWARD_POWER_DETECTOR_A_TEMPERATURE:
+      data_return = forward_power_detector_A.detector_temperature;
+      break;
+
+    case RAM_READ_FORWARD_POWER_DETECTOR_A_POWER:
+      data_return = forward_power_detector_A.power_reading_centi_watts;
+      break;
+
+    case RAM_READ_FORWARD_POWER_DETECTOR_B_TEMPERATURE:
+      data_return = forward_power_detector_B.detector_temperature;
+      break;
+
+    case RAM_READ_FORWARD_POWER_DETECTOR_B_POWER:
+      data_return = forward_power_detector_B.power_reading_centi_watts;
+      break;
+
+    case RAM_READ_REVERSE_POWER_DETECTOR_A_TEMPERATURE:
+      data_return = reverse_power_detector_A.detector_temperature;
+      break;
+
+    case RAM_READ_REVERSE_POWER_DETECTOR_A_POWER:
+      data_return = reverse_power_detector_A.power_reading_centi_watts;
+      break;
+
+    case RAM_READ_REVERSE_POWER_DETECTOR_B_TEMPERATURE:
+      data_return = reverse_power_detector_B.detector_temperature;
+      break;
+
+    case RAM_READ_REVERSE_POWER_DETECTOR_B_POWER:
+      data_return = reverse_power_detector_B.power_reading_centi_watts;
+      break;
+
+    case RAM_READ_PID_POWER_TARGET:
+      data_return = (pid_forward_power.controlReference << 1);
+      break;
+
+    case RAM_READ_PROGRAM_POWER_LEVEL:
+      data_return = program_power_level.power_reading_centi_watts;
+      break;
+
+    case RAM_READ_RF_AMPLIFIER_TEMPERATURE:
+      data_return = program_power_level.detector_temperature;
+      break;
+
+    case RAM_READ_TOTAL_FORWARD_POWER:
+      data_return = total_forward_power_centi_watts;
+      break;
+
+    case RAM_READ_TOTAL_REVERSE_POWER:
+      data_return = total_reverse_power_centi_watts;
+      break;
+
+    case RAM_READ_PID_DAC_OUTPUT:
+      data_return = rf_amplifier_dac_output;
+      break;
+
+    case RAM_READ_FAULT_REGISTER:
+      data_return = fault_latched_register;
       break;
       
-      */
-      // Read Bedug Counters
+    case RAM_READ_FAULT_STATUS_REGISTER:
+      data_return = fault_status_register;
+      break;
+      
+    case RAM_READ_OVER_REVERSE_COUNT:
+      data_return = over_refected_power_count;
+      break;
+
+    case RAM_READ_SCALE_ERRORS:
+      data_return = etm_scale16bit_saturation_count;
+      break;
+
+    case RAM_READ_LTC2656_ERRORS:
+      data_return = LTC2656_write_error_count;
+	break;
 
     }  
   return data_return;
@@ -246,7 +268,8 @@ unsigned char CheckCRC(unsigned int crc) {
 
 
 
-void _ISRNOPSV _U1RXInterrupt(void) {
+//void _ISRNOPSV _U1RXInterrupt(void) {
+void __attribute__((interrupt(__save__(CORCON,SR)),no_auto_psv)) _U1RXInterrupt(void) {
   _U1RXIF = 0;
   while (U1STAbits.URXDA) {
     BufferByte64WriteByte(&uart1_input_buffer, U1RXREG);
@@ -255,7 +278,8 @@ void _ISRNOPSV _U1RXInterrupt(void) {
 
 
 
-void _ISRNOPSV _U1TXInterrupt(void) {
+//void _ISRNOPSV _U1TXInterrupt(void) {
+void __attribute__((interrupt(__save__(CORCON,SR)),no_auto_psv)) _U1TXInterrupt(void) {
   _U1TXIF = 0;
   while ((!U1STAbits.UTXBF) && (BufferByte64BytesInBuffer(&uart1_output_buffer))) {
     /*

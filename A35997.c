@@ -4,91 +4,13 @@
 
 
 
-#define SPI2_STATE_READ_B_AND_START_CONVERSION    0
-#define SPI2_STATE_START_A_TRANSFER               1
-#define SPI2_STATE_READ_A_AND_START_B_TRANSFER    2
 
 
-const unsigned int detector_voltage_to_power_look_up_table[4096] = {DETECTOR_LOOK_UP_TABLE_VALUES};
-
-
+//--------- Local Function Prototypes ---------//
 unsigned int ConvertAmplifierTemperatureADCtoDeciDegreesK(unsigned int adc_reading); 
 unsigned int ConvertDetectorTemperatureADCtoDeciDegreesK(unsigned int adc_reading);
-
-
-// Control structers for the thyratron heater PID loops
-tPID pid_forward_power;
-fractional pid_forward_power_controlHistory[3] __attribute__ ((section (".ybss, bss, ymemory")));
-fractional pid_forward_power_abcCoefficient[3] __attribute__ ((section (".xbss, bss, xmemory")));
-fractional pid_forward_power_kCoeffs[] = {0,0,0};
-
-
-
-// Debugging Information
-
-unsigned int sp1_bus_error_count;
-unsigned int sp2_bus_error_count;
-unsigned int LTC2656_write_error_count;
-
-
-LTC2656 U6_LTC2656;
-
-
-RF_DETECTOR forward_power_detector_A;
-RF_DETECTOR forward_power_detector_B;
-
-RF_DETECTOR reverse_power_detector_A;
-RF_DETECTOR reverse_power_detector_B;
-
-RF_DETECTOR program_power_level;
-
-
-unsigned int rf_amplifier_temp = 1;
-
-volatile unsigned int power_program = 1;
-volatile unsigned char adc_result_index;
-
-unsigned int reverse_detector_a_array[128];
-unsigned int reverse_detector_b_array[128];
-unsigned int rf_amplifier_temperature_array[128];
-unsigned int fwd_rf_det_a_temperature_array[128];
-unsigned int fwd_rf_det_b_temperature_array[128];
-unsigned int rev_rf_det_a_temperature_array[128];
-unsigned int rev_rf_det_b_temperature_array[128];
-
-
-
-volatile unsigned int spi2_state;
-unsigned int forward_detector_a_array[16];
-unsigned int forward_detector_b_array[16];
-volatile unsigned char AD7686_result_index;
-
-volatile unsigned int measured_power_a;
-volatile unsigned int measured_power_b;
-volatile unsigned int forward_power;
-
-volatile unsigned int power_target_centi_watts;
-volatile unsigned int total_forward_power_centi_watts;
-volatile unsigned int rf_amplifier_dac_output;
-
-
-
-
-// global variables
-unsigned char control_state;
-unsigned char software_foldback_mode_enable = 0;
-unsigned char software_rf_disable = 1;
-
-
-
-
-unsigned char led_pulse_count;
-unsigned char front_panel_led_startup_flash_couter;
-unsigned char front_panel_led_pulse_count;
-unsigned char front_panel_led_state;
-unsigned char start_reset_process;
-
-
+unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level);
+void DoFrontPanelLED(void);
 void DoA35997StartUp(void);
 void CalibrateADCReading(RF_DETECTOR* ptr_rf_det, unsigned int adc_reading);
 void CalibrateDetectorLevel(RF_DETECTOR* ptr_rf_det);
@@ -97,16 +19,75 @@ void Do10msTicToc(void);
 void FilterADCs(void);
 
 
-unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level);
+// --------- Constant Tables in Stored in Program Memory ---------------//
+const unsigned int detector_voltage_to_power_look_up_table[4096] = {DETECTOR_LOOK_UP_TABLE_VALUES};
 
-#define SOLID_GREEN                1
-#define SOLID_BLUE                 2
-#define FLASH_BLUE                 3
-#define SOLID_RED                  4
-#define FLASH_RED                  5
-#define FLASH_ALL_SERIES           6
 
-#define DPARKER_LED_FLASH_COMPLETE 1
+
+// Debugging Information
+// DPARKER - WHERE ARE THESE USED????
+unsigned int spi2_bus_error_count;
+
+
+
+
+// ---- Global Structures ------//
+RF_DETECTOR forward_power_detector_A;
+RF_DETECTOR forward_power_detector_B;
+RF_DETECTOR reverse_power_detector_A;
+RF_DETECTOR reverse_power_detector_B;
+RF_DETECTOR program_power_level;
+tPID pid_forward_power;
+
+
+// ------- Local Structures ---------//
+LTC2656 U6_LTC2656;
+fractional pid_forward_power_controlHistory[3] __attribute__ ((section (".ybss, bss, ymemory")));
+fractional pid_forward_power_abcCoefficient[3] __attribute__ ((section (".xbss, bss, xmemory")));
+fractional pid_forward_power_kCoeffs[] = {0,0,0};
+
+
+
+//---------- Global Variables --------- //
+unsigned int control_state;
+volatile unsigned int total_forward_power_centi_watts;
+volatile unsigned int total_reverse_power_centi_watts;
+volatile unsigned int rf_amplifier_dac_output;
+unsigned int software_foldback_mode_enable = 0;
+unsigned int LTC2656_write_error_count;
+
+//---------- Local  Variables ----------//
+unsigned int software_rf_disable = 1;
+
+unsigned int led_pulse_count;
+unsigned int front_panel_led_startup_flash_couter;
+unsigned int front_panel_led_pulse_count;
+unsigned int front_panel_led_state;
+unsigned int start_reset_process;
+
+
+//------------- ADC Data Storage Circular Buffers ------------//
+unsigned int reverse_detector_a_array[128];
+unsigned int reverse_detector_b_array[128];
+unsigned int rf_amplifier_temperature_array[128];
+unsigned int fwd_rf_det_a_temperature_array[128];
+unsigned int fwd_rf_det_b_temperature_array[128];
+unsigned int rev_rf_det_a_temperature_array[128];
+unsigned int rev_rf_det_b_temperature_array[128];
+
+volatile unsigned int adc_result_index;
+
+
+unsigned int forward_detector_a_array[16];
+unsigned int forward_detector_b_array[16];
+
+volatile unsigned int spi2_state = 0;
+volatile unsigned int ad7686_result_index;
+
+unsigned int *fwd_det_a_pointer = forward_detector_a_array;
+unsigned int *fwd_det_b_pointer = forward_detector_b_array;
+
+
 
 void DoA35997StateMachine(void) {
   
@@ -125,12 +106,9 @@ void DoA35997StateMachine(void) {
     while (control_state == STATE_FLASH_LEDS_AT_STARTUP) {
       DoSerialCommand();
       Do10msTicToc();
-      if (FaultCheckOverTemp()) {
-	control_state = STATE_FAULT_OVER_TEMP;
-      } else if (FaultCheckGeneralFault()) {
-	control_state = STATE_FAULT_GENERAL_FAULT;
-      } else if (front_panel_led_startup_flash_couter > FRONT_PANEL_LED_NUMBER_OF_FLASHES_AT_STARTUP) {
-	control_state = STATE_RF_OFF; 
+      if (front_panel_led_startup_flash_couter > FRONT_PANEL_LED_NUMBER_OF_FLASHES_AT_STARTUP) {
+	control_state = STATE_RF_OFF;
+	ResetAllFaults();
       }
     }
     break;    
@@ -182,7 +160,8 @@ void DoA35997StateMachine(void) {
   case STATE_RF_ON_FOLDBACK:
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
     software_foldback_mode_enable = 1;
-    SetFrontPanelLedState(FLASH_BLUE);
+    front_panel_led_state = FLASH_BLUE;
+    front_panel_led_pulse_count = 0;
     while (control_state == STATE_RF_ON_FOLDBACK) {
       DoSerialCommand();
       Do10msTicToc();
@@ -203,7 +182,8 @@ void DoA35997StateMachine(void) {
   case STATE_FAULT_OVER_TEMP:
     PIN_SUM_FLT = OLL_PIN_SUM_FAULT_FAULTED;
     software_rf_disable = 1;
-    SetFrontPanelLedState(FLASH_RED);
+    front_panel_led_state = FLASH_RED;
+    front_panel_led_pulse_count = 0;
     while (control_state == STATE_FAULT_OVER_TEMP) {
       DoSerialCommand();
       Do10msTicToc();
@@ -218,7 +198,8 @@ void DoA35997StateMachine(void) {
   case STATE_FAULT_GENERAL_FAULT:
     PIN_SUM_FLT = OLL_PIN_SUM_FAULT_FAULTED;
     software_rf_disable = 1;
-    SetFrontPanelLedState(SOLID_RED);
+    front_panel_led_state = SOLID_RED;
+    front_panel_led_pulse_count = 0;
     while (control_state == STATE_FAULT_GENERAL_FAULT) {
       DoSerialCommand();
       Do10msTicToc();
@@ -232,7 +213,47 @@ void DoA35997StateMachine(void) {
 
 
 void DoA35997StartUp(void) {
+
+  // Initialize Detectors
+  // PROGRAM POWER LEVEL
+  program_power_level.adc_cal_gain = 0x8000;  // dparker read all this cal constant from EEPROM
+  program_power_level.adc_cal_gain_thermal_adjust = 0;
+  program_power_level.adc_cal_offset = 0x0000;
+  program_power_level.adc_cal_offset_thermal_adjust = 0;
   
+  // Forward Detector A
+  forward_power_detector_A.adc_cal_gain = 0x8000;  // dparker read all this cal constant from EEPROM
+  forward_power_detector_A.adc_cal_gain_thermal_adjust = 0;
+  forward_power_detector_A.adc_cal_offset = 0x0000;
+  forward_power_detector_A.adc_cal_offset_thermal_adjust = 0;
+  forward_power_detector_A.max_power = FORWARD_DETECTOR_MAX_POWER;
+  forward_power_detector_A.over_power_trip_time = FORWARD_OVER_POWER_TRIP_TIME_10MS_UNITS;
+
+  // Forward Detector B
+  forward_power_detector_B.adc_cal_gain = 0x8000;  // dparker read all this cal constant from EEPROM
+  forward_power_detector_B.adc_cal_gain_thermal_adjust = 0;
+  forward_power_detector_B.adc_cal_offset = 0x0000;
+  forward_power_detector_B.adc_cal_offset_thermal_adjust = 0;
+  forward_power_detector_B.max_power = FORWARD_DETECTOR_MAX_POWER;
+  forward_power_detector_B.over_power_trip_time = FORWARD_OVER_POWER_TRIP_TIME_10MS_UNITS;
+  
+  // Reverse Detector B
+  reverse_power_detector_A.adc_cal_gain = 0x8000;  // dparker read all this cal constant from EEPROM
+  reverse_power_detector_A.adc_cal_gain_thermal_adjust = 0;
+  reverse_power_detector_A.adc_cal_offset = 0x0000;
+  reverse_power_detector_A.adc_cal_offset_thermal_adjust = 0;
+  reverse_power_detector_A.max_power = REVERSE_DETECTOR_MAX_POWER;
+  reverse_power_detector_A.over_power_trip_time = REVERSE_OVER_POWER_TRIP_TIME_10MS_UNITS;
+
+  // Reverse Detector B
+  reverse_power_detector_B.adc_cal_gain = 0x8000;  // dparker read all this cal constant from EEPROM
+  reverse_power_detector_B.adc_cal_gain_thermal_adjust = 0;
+  reverse_power_detector_B.adc_cal_offset = 0x8000;
+  reverse_power_detector_B.adc_cal_offset_thermal_adjust = 0;
+  reverse_power_detector_B.max_power = REVERSE_DETECTOR_MAX_POWER;
+  reverse_power_detector_B.over_power_trip_time = REVERSE_OVER_POWER_TRIP_TIME_10MS_UNITS;
+    
+
   // --------- BEGIN IO PIN CONFIGURATION ------------------
   
   // Initialize the output latches before setting TRIS
@@ -329,16 +350,13 @@ void DoA35997StartUp(void) {
   
   // ----------------- UART #1 Setup and Data Buffer -------------------------//
   // Setup the UART input and output buffers
-  uart1_input_buffer.write_location = 0;  
-  uart1_input_buffer.read_location = 0;
-  uart1_output_buffer.write_location = 0;
-  uart1_output_buffer.read_location = 0;
+  BufferByte64Initialize(&uart1_input_buffer);
+  BufferByte64Initialize(&uart1_output_buffer);
   
   U1MODE = A35997_U1MODE_VALUE;
   U1BRG = A35997_U1BRG_VALUE;
   U1STA = A35997_U1STA_VALUE;
   
-
 
   // ---------- Configure Timers ----------------- //
   
@@ -353,9 +371,6 @@ void DoA35997StartUp(void) {
   TMR2 = 0;
   _T2IF = 0;
 
-
-
-
   // Initialize the PID structure
   pid_forward_power.abcCoefficients = &pid_forward_power_abcCoefficient[0];    /*Set up pointer to derived coefficients */
   pid_forward_power.controlHistory = &pid_forward_power_controlHistory[0];     /*Set up pointer to controller history samples */
@@ -366,12 +381,6 @@ void DoA35997StartUp(void) {
   pid_forward_power_kCoeffs[2] = Q15(POWER_PID_D_COMPONENT);
   PIDCoeffCalc(&pid_forward_power_kCoeffs[0], &pid_forward_power);             /*Derive the a,b, & c coefficients from the Kp, Ki & Kd */
 
-
-
-
-
-  ResetAllFaults();
-  
   // --------------- Initialize U6 - LTC2656 ------------------------- //
   U6_LTC2656.pin_cable_select_not = _PIN_RD15;
   U6_LTC2656.pin_dac_clear_not = _PIN_RB15;
@@ -386,13 +395,9 @@ void DoA35997StartUp(void) {
   U6_LTC2656.fcy_clk = FCY_CLK;
   // DPARKER most of these values for CON1/CON2/STAT should be fixed for the LTC2656 so they don't need to be stored in ram or worried about by the user, just set them as constants in the module
 
-
-  
   OpenSPI1((A35997_SPI1CON_VALUE & A35997_SPI1CON_CLOCK), A35997_SPI1STAT_VALUE);  // Configure SPI bus 1 based on H file parameters
 
   SetupLTC2656(&U6_LTC2656);
-  
-
   
   // ---- Configure the dsPIC ADC Module ------------ //
   ADCON1 = A35997_ADCON1_VALUE;             // Configure the high speed ADC module based on H file parameters
@@ -405,7 +410,6 @@ void DoA35997StartUp(void) {
 
 
   // Begin External ADC operation (this uses SPI2)
-  spi2_state = SPI2_STATE_READ_B_AND_START_CONVERSION;
   _SPI2IF = 0;
   _SPI2IE = 1;
   SPI2BUF = 0xAAAA;
@@ -438,8 +442,7 @@ void DoA35997StartUp(void) {
 }
 
 
-
-/*  RF Detector Functions */
+/*---------------- RF Detector Functions ------------------ */
 
 /* 
    The data calibration process
@@ -516,100 +519,11 @@ unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level) {
   // Input scalling = V_in / 5
   // 2V = 530 Watts
   // 0xFFFF = 542.72 Watts = 54272 Centi Watts
-  // Need to multiply by 54272 and shit right 16 bits
+  // Need to multiply by 54272 and shift right 16 bits
   return ETMScale16Bit(program_level, PROGRAM_LEVEL_TO_CENTI_WATTS_SCALE_FACTOR, 0);
 }
 
-void Do10msTicToc(void) {
-
-  ClrWdt();
-  if (_T2IF) {
-    _T2IF = 0;
-    //10ms roll has occured
-    
-    // Flash LED 1 on the control board
-    led_pulse_count = ((led_pulse_count + 1) & 0b00001111);
-    if (led_pulse_count == 0) {
-      // 10ms * 16 counter has ocurred
-      if (PIN_TEST_LED_1) {
-	PIN_TEST_LED_1 = 0;
-      } else {
-	PIN_TEST_LED_1 = 1;
-      }  
-    }
-    
-    // Handle to front panel LED state
-    front_panel_led_pulse_count = ((front_panel_led_pulse_count + 1) & 0b01111111);
-    // this will roll over every 10ms * 2^7 = 1.28 seconds, this is the LED period
-    switch(front_panel_led_state) {
-      
-    case SOLID_GREEN:
-      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_ON;
-      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
-      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
-      break;
-      
-    case SOLID_BLUE:
-      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
-      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
-      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
-      break;
-      
-    case FLASH_BLUE:
-      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
-      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
-
-      if ((front_panel_led_pulse_count & 0b01000000) == 0) {
-	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
-      } else {
-	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
-      }
-      break;
-
-    case SOLID_RED:
-      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
-      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
-      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
-      break;
-      
-    case FLASH_RED:
-      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
-      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
-
-      if ((front_panel_led_pulse_count & 0b01000000) == 0) {
-	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
-      } else {
-	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
-      }
-      break;
-      
-    case FLASH_ALL_SERIES:
-      if (front_panel_led_pulse_count == 1) {
-	front_panel_led_startup_flash_couter++;
-      }
-      if (front_panel_led_pulse_count <= 42) {
-	PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_ON;
-	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
-	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
-      } else if (front_panel_led_pulse_count <= 84) {
-	PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
-	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
-	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
-      } else {
-	PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
-	PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
-	PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
-      }
-    }
-
-  }
-}
-
-
-
-
 unsigned int ConvertAmplifierTemperatureADCtoDeciDegreesK(unsigned int adc_reading){
-  unsigned int temperature;
   /*
     25 Deg V = 750mV
     +/- 10mV per deg C
@@ -619,7 +533,7 @@ unsigned int ConvertAmplifierTemperatureADCtoDeciDegreesK(unsigned int adc_readi
     Deci Deg K = (223 + V_adc/320)*10
     = 2230 + V_adc/32
   */
-  return (2230 + (adc_reading)>>5);
+  return (2230 + (adc_reading>>5));
 }
 
 unsigned int ConvertDetectorTemperatureADCtoDeciDegreesK(unsigned int adc_reading) {
@@ -633,11 +547,118 @@ unsigned int ConvertDetectorTemperatureADCtoDeciDegreesK(unsigned int adc_readin
 }
 
 
+void Do10msTicToc(void) {
+  PIN_TEST_POINT_28 = 1;
+  ClrWdt();
+  if (_T2IF) {
+    PIN_TEST_POINT_29 = 1;
+    _T2IF = 0;
+    //10ms roll has occured
+    
+    // Flash LED 1 on the control board
+    led_pulse_count += 1;
+    led_pulse_count &= 0b00011111;
+    if (led_pulse_count & 0b00010000) {
+      PIN_TEST_LED_1 = TEST_LED_ON;
+    } else  {
+      PIN_TEST_LED_1 = TEST_LED_OFF;
+    }
+    
+    // Manage the front panel LEDs
+    DoFrontPanelLED();
+
+
+    // ------- Generate Fault Reset on Positive RF_ENABLE Transition--------- //
+    if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (start_reset_process)) {
+      ResetAllFaults();
+    }
+    if (PIN_RF_ENABLE == !ILL_PIN_RF_ENABLE_ENABLED) {
+      // Start the Reset Process
+      start_reset_process = 1;
+    } else {
+      start_reset_process = 0;
+    }
+
+    FilterADCs();           
+    UpdateFaults();
+    RollOffCalculation();  //DPARKER figure this out
+    PIN_TEST_POINT_29 = 0;
+  }
+  PIN_TEST_POINT_28 = 0;
+}
+
+
+void DoFrontPanelLED(void) {
+    
+  // Handle to front panel LED state
+  front_panel_led_pulse_count += 1;
+  front_panel_led_pulse_count &= 0b01111111;
+  // this will roll over every 10ms * 2^7 = 1.28 seconds, this is the LED period
+  switch(front_panel_led_state) {
+    
+  case SOLID_GREEN:
+    PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_ON;
+    PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+    PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+    break;
+    
+  case SOLID_BLUE:
+    PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+    PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
+    PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+    break;
+    
+  case FLASH_BLUE:
+    PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+    PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+
+    if ((front_panel_led_pulse_count & 0b01000000) == 0) {
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
+    } else {
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+    }
+    break;
+
+  case SOLID_RED:
+    PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+    PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+    PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
+    break;
+      
+  case FLASH_RED:
+    PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+    PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+
+    if ((front_panel_led_pulse_count & 0b01000000) == 0) {
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
+    } else {
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+    }
+    break;
+      
+  case FLASH_ALL_SERIES:
+    if (front_panel_led_pulse_count == 1) {
+      front_panel_led_startup_flash_couter++;
+    }
+    if (front_panel_led_pulse_count <= 42) {
+      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_ON;
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+    } else if (front_panel_led_pulse_count <= 84) {
+      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_ON;
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_OFF;
+    } else {
+      PIN_FRONT_PANEL_LED_GREEN = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_BLUE = OLL_FRONT_PANEL_LED_OFF;
+      PIN_FRONT_PANEL_LED_RED = OLL_FRONT_PANEL_LED_ON;
+    }
+  }
+}
+
+
 void FilterADCs(void) {
-  unsigned int averaged_adc_reading;
-
   /*
-
     Forward Detector A and B are read by the external ADC and filtered by the SPI Interrupt because their updated values are needed immediately
     Power Level Program from the customer is read by the internal ADC and filtered by the internal ADC because their updated values are needed immediately
   
@@ -647,47 +668,68 @@ void FilterADCs(void) {
     These are averaged over 128 samples then low pass filtered
     The reverse power detector data is averaged and low pass filtered (at a higher frequency)
   */
-  
+  unsigned int averaged_adc_reading;
+  unsigned int temperature_reading;
+  unsigned long power_long;
+
   averaged_adc_reading = AverageADC128(rf_amplifier_temperature_array);
   temperature_reading = ConvertAmplifierTemperatureADCtoDeciDegreesK(averaged_adc_reading);
-  rf_amplifier_temp = RCFilterNTau(rf_amplifier_temp, averaged_adc_reading, RC_FILTER_64_TAU);
+  //rf_amplifier_temp = RCFilter64Tau(rf_amplifier_temp, temperature_reading);
+  program_power_level.detector_temperature = RCFilterNTau(program_power_level.detector_temperature, temperature_reading,RC_FILTER_64_TAU);
 
   averaged_adc_reading = AverageADC128(fwd_rf_det_a_temperature_array);
   temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
-  forward_power_detector_A.detector_temperature = RCFilterNTau(forward_power_detector_A.detector_temperature, temperature_reading, RC_FILTER_64_TAU);
-
+  //forward_power_detector_A.detector_temperature = RCFilter64Tau(forward_power_detector_A.detector_temperature, temperature_reading);
+  forward_power_detector_A.detector_temperature = RCFilterNTau(forward_power_detector_A.detector_temperature, temperature_reading,RC_FILTER_64_TAU);
+  
   averaged_adc_reading = AverageADC128(fwd_rf_det_b_temperature_array);
   temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
-  forward_power_detector_B.detector_temperature = RCFilterNTau(forward_power_detector_B.detector_temperature, temperature_reading, RC_FILTER_64_TAU);
+  //forward_power_detector_B.detector_temperature = RCFilter64Tau(forward_power_detector_B.detector_temperature, temperature_reading);
+  forward_power_detector_B.detector_temperature = RCFilterNTau(forward_power_detector_B.detector_temperature, temperature_reading,RC_FILTER_64_TAU);
 
   averaged_adc_reading = AverageADC128(rev_rf_det_a_temperature_array);
   temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
-  reverse_power_detector_A.detector_temperature = RCFilterNTau(reverse_power_detector_A.detector_temperature, temperature_reading, RC_FILTER_64_TAU);
+  //reverse_power_detector_A.detector_temperature = RCFilter64Tau(reverse_power_detector_A.detector_temperature, temperature_reading);
+  reverse_power_detector_A.detector_temperature = RCFilterNTau(reverse_power_detector_A.detector_temperature, temperature_reading,RC_FILTER_64_TAU);
   
   averaged_adc_reading = AverageADC128(rev_rf_det_b_temperature_array);
   temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
-  reverse_power_detector_B.detector_temperature = RCFilterNTau(reverse_power_detector_B.detector_temperature, temperature_reading, RC_FILTER_64_TAU);
+  //reverse_power_detector_B.detector_temperature = RCFilter64Tau(reverse_power_detector_B.detector_temperature, temperature_reading);
+  reverse_power_detector_B.detector_temperature = RCFilterNTau(reverse_power_detector_B.detector_temperature, temperature_reading,RC_FILTER_64_TAU);
   
   averaged_adc_reading = AverageADC128(reverse_detector_a_array);
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
-  reverse_power_detector_A.detector_level_calibrated = RCFilterNTau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading, RC_FILTER_8_TAU);
+  //reverse_power_detector_A.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading);
+  reverse_power_detector_A.detector_level_calibrated = RCFilterNTau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
+  ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_A);
   
   averaged_adc_reading = AverageADC128(reverse_detector_b_array);
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
-  reverse_power_detector_B.detector_level_calibrated = RCFilterNTau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading, RC_FILTER_8_TAU);
+  //reverse_power_detector_B.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading);
+  reverse_power_detector_B.detector_level_calibrated = RCFilterNTau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
+  ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_B);
+
+  power_long = reverse_power_detector_A.power_reading_centi_watts;
+  power_long += reverse_power_detector_B.power_reading_centi_watts;
+  if (power_long >= 0xFFFF) {
+    total_reverse_power_centi_watts = 0xFFFF;
+  } else {
+    total_reverse_power_centi_watts = (power_long & 0xFFFF);
+  }
 }
 
 
-// ------------ ISRs ---------------- //
-
-
+//----------------------- ISRs ------------------------- //
 
 
 // SPI2 Interrupt - External ADC
+// SPI2 Interrupt is moved to assembly in A35997_assemblt_functions.s
 
+/*
+#define SPI2_STATE_READ_B_AND_START_CONVERSION 0
+#define SPI2_STATE_START_A_TRANSFER 1
+#define SPI2_STATE_READ_A_AND_START_B_TRANSFER 2
 void _ISRFASTNOPSV _SPI2Interrupt(void) {
-  // DPARKER - between 1/3 and 1/2 of the processor time is spent processing this ISR, consider how it can be re-written to be faster and move it to assembly
-
   // With 29.5 MHz Clock this samples each signal at about 100 KHz
   unsigned int trash;
   PIN_TEST_POINT_27 = 1;  // Time this interrupt
@@ -698,12 +740,12 @@ void _ISRFASTNOPSV _SPI2Interrupt(void) {
     // (*) SPI Interrupt Saves SPIBUF to Data 2, CS2->High, Convert->High. Convert->Low, Exits = 16 bit delay + execution time  
     PIN_AD7686_2_CS = !OLL_AD7686_SELECT_DEVICE; 
     PIN_AD7686_CONVERT = !OLL_AD7686_START_CONVERSION;
-    forward_detector_b_array[AD7686_result_index] = SPI2BUF;
+    forward_detector_b_array[ad7686_result_index] = SPI2BUF;
     PIN_AD7686_CONVERT = OLL_AD7686_START_CONVERSION;
     SPI2BUF = 0xAAAA;
     spi2_state = SPI2_STATE_START_A_TRANSFER;
-    AD7686_result_index++;
-    AD7686_result_index &= 0b00001111; // 16 element circular buffer
+    ad7686_result_index++;
+    ad7686_result_index &= 0b00001111; // 16 element circular buffer
     break;
 
   case SPI2_STATE_START_A_TRANSFER:
@@ -716,7 +758,7 @@ void _ISRFASTNOPSV _SPI2Interrupt(void) {
     
   case SPI2_STATE_READ_A_AND_START_B_TRANSFER:
     PIN_AD7686_1_CS = !OLL_AD7686_SELECT_DEVICE;
-    forward_detector_a_array[AD7686_result_index] = SPI2BUF;
+    forward_detector_a_array[ad7686_result_index] = SPI2BUF;
     PIN_AD7686_2_CS = OLL_AD7686_SELECT_DEVICE;
     SPI2BUF = 0xAAAA;
     spi2_state = SPI2_STATE_READ_B_AND_START_CONVERSION;
@@ -724,18 +766,47 @@ void _ISRFASTNOPSV _SPI2Interrupt(void) {
   }
   PIN_TEST_POINT_27 = 0;
 }
-
+*/
 
 
 // ADC Interrupt
 void _ISRNOPSV _ADCInterrupt(void) {
-  unsigned int power_level_average;
-  _ASAM = 0;
+//void __attribute__((interrupt(__save__(CORCON,SR)),no_auto_psv)) _ADCInterrupt(void) {
+  // At a sample rate of 180KHz, it takes 83uS to perform the 15 conversions.
+  // The ADC conversion process is started by the 100uS interrupt and this data process will complete before the next T1 interrupt
   PIN_TEST_POINT_26 = 1; // TIME this interrupt
-  // _ASAM = 0; // Stop Auto Sampling
+  _ASAM = 0;
   _ADIF = 0;
+  PIN_TEST_POINT_26 = 0;
+}
 
-  // Copy Data From Buffer to RAM
+
+
+// PID Interrupt on TMR1 (100us) 
+//void _ISRNOPSV _T1Interrupt(void) {
+void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interrupt(void) {
+  unsigned int power_level_average;
+  unsigned long power_long;
+  unsigned int power_target_centi_watts;
+  /*
+    The pid functions provided by dsp.h use Q15 fractional data.
+    This represents fractional inputs/outputs from -1 to 1.
+    Our inputs to the PID come from an unipolar ADC.
+    The control output of the PID goes directly to a DAC.
+    In order for the PID control to work with our unsigned 16 bit data two changed must be made.
+    (1) Measured output must be converted from 16 bit data to Q(15).  This is easily done by shifting one bit to the right.
+        From to PIDs point of view we are just decreasing our resolution by 1 bit, not a problem here.
+    (2) Control output must be convereted so that it can iterface to our DAC.
+        The control output ranges from -1 to 1.  so perform the following logic.
+	If (control_output < 0) then (control_output = 0).
+	Multiply control_output by 2 (shift left 1 bit) to use the full range of the DAC.
+	NOTE: You must perform the math like this we because the PID will set the output to Zero at start.
+	If you shift the entire 16 bits to unsinged interger, 0 will become 0x7FFF and your control_output will start at 50%, not zero!!!!
+  */
+  // Time this interrupt
+  PIN_TEST_POINT_25 = 1; // Time this interrupt
+  
+  // Copy Data From ADC Buffer to RAM
   reverse_detector_b_array[adc_result_index] = ADCBUF0;  
   power_level_average = ADCBUF1;
   reverse_detector_a_array[adc_result_index] = ADCBUF2;
@@ -756,58 +827,15 @@ void _ISRNOPSV _ADCInterrupt(void) {
   adc_result_index &= 0b01111111;
   
   power_level_average <<= 1; // Scale power level average up to 16 bits
-  power_program = RCFilterNTau(power_program, power_level_average, RC_FILTER_2_TAU);
 
-  // DPARKER it may be better to store the power_program in a circular buffer and average/filter it in the T1 interrupt
-  // DPARKER filter the power level from the customer without require an external function call.   That will make this interrupt much faster.
-
-  //_ASAM = 1; // Start Auto Sampling
-  PIN_TEST_POINT_26 = 0;
-  _ASAM = 1;
-}
-
-
-#define MINIMUM_POWER_TARGET            100           // 1 Watt
-#define FOLDBACK_POWER_PROGRAM          25000         // 250 Watts
-
-// PID Interrupt on TMR1 (100us) 
-void _ISRNOPSV _T1Interrupt(void) {
-  /*
-    The pid functions provided by dsp.h use Q15 fractional data.
-    This represents fractional inputs/outputs from -1 to 1.
-    Our inputs to the PID come from an unipolar ADC.
-    The control output of the PID goes directly to a DAC.
-    In order for the PID control to work with our unsigned 16 bit data two changed must be made.
-    (1) Measured output must be converted from 16 bit data to Q(15).  This is easily done by shifting one bit to the right.
-        From to PIDs point of view we are just decreasing our resolution by 1 bit, not a problem here.
-    (2) Control output must be convereted so that it can iterface to our DAC.
-        The control output ranges from -1 to 1.  so perform the following logic.
-	If (control_output < 0) then (control_output = 0).
-	Multiply control_output by 2 (shift left 1 bit) to use the full range of the DAC.
-	NOTE: You must perform the math like this we because the PID will set the output to Zero at start.
-	If you shift the entire 16 bits to unsinged interger, 0 will become 0x7FFF and your control_output will start at 50%, not zero!!!!
-  */
-  // Time this interrupt
-  PIN_TEST_POINT_25 = 1; // Time this interrupt
+  _ASAM = 1; // Internal ADC conversion is synced to this interrupt.  
   _T1IF = 0;
-
-  CalibrateADCReading(&program_power_level, power_program);
-  power_target_centi_watts = ConvertProgramLevelToPowerCentiWatts(program_power_level.adc_reading_calibrated);
   
-  if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
-    // The RF output is enabled
-    PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
-    pid_forward_power.controlReference = power_target_centi_watts;
-    if (software_foldback_mode_enable) {
-      if (pid_forward_power.controlReference > FOLDBACK_POWER_PROGRAM) {
-        pid_forward_power.controlReference = FOLDBACK_POWER_PROGRAM;
-      }
-    }
-  } else {
-    // The RF Output should be disabled
-    PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
-    pid_forward_power.controlReference = 0;
-  }
+  CalibrateADCReading(&program_power_level, power_level_average);
+  power_target_centi_watts = ConvertProgramLevelToPowerCentiWatts(program_power_level.adc_reading_calibrated);
+  program_power_level.power_reading_centi_watts = power_target_centi_watts;
+  
+  
   CalibrateADCReading(&forward_power_detector_A, (AverageADC16(forward_detector_a_array)));
   CalibrateDetectorLevel(&forward_power_detector_A);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_A);
@@ -816,9 +844,32 @@ void _ISRNOPSV _T1Interrupt(void) {
   CalibrateDetectorLevel(&forward_power_detector_B);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
   
-  total_forward_power_centi_watts = forward_power_detector_B.power_reading_centi_watts + forward_power_detector_A.power_reading_centi_watts;
-
-  pid_forward_power.controlReference = (power_target_centi_watts >> 1);
+  //total_forward_power_centi_watts = forward_power_detector_B.power_reading_centi_watts + forward_power_detector_A.power_reading_centi_watts;
+  power_long = forward_power_detector_A.power_reading_centi_watts;
+  power_long += forward_power_detector_B.power_reading_centi_watts;
+  if (power_long >= 0xFFFF) {
+    total_forward_power_centi_watts = 0xFFFF;
+  } else {
+    total_forward_power_centi_watts = (power_long & 0xFFFF);
+  }
+  
+  
+  
+  if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
+    // The RF output is enabled
+    PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
+    pid_forward_power.controlReference = (power_target_centi_watts >> 1);
+    if (software_foldback_mode_enable) {
+      if (pid_forward_power.controlReference > (FOLDBACK_POWER_PROGRAM >> 1)) {
+        pid_forward_power.controlReference = (FOLDBACK_POWER_PROGRAM >> 1);
+      }
+    }
+  } else {
+    // The RF Output should be disabled
+    PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
+    pid_forward_power.controlReference = 0;
+  }
+  
   pid_forward_power.measuredOutput = (total_forward_power_centi_watts >> 1);
   PID(&pid_forward_power);
   
@@ -827,15 +878,15 @@ void _ISRNOPSV _T1Interrupt(void) {
     rf_amplifier_dac_output = 0x0000;
   }
   rf_amplifier_dac_output = rf_amplifier_dac_output << 1;
-
-  //WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output);
-  WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, power_target_centi_watts);  // DPARKER TESTING
-  // This Write LTC2656 command takes a very long time, make this an interrupt driven process???
+  
+  if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
+    LTC2656_write_error_count++;
+  }
   
   PIN_TEST_POINT_25 = 0;
 }
 
-
+// THIS FUNCTION FOR DEBUGGING ONLY
 void _ISRNOPSV _AddressError(void) {
   Nop();
   Nop();
@@ -849,3 +900,5 @@ void _ISRNOPSV _DefaultInterrupt(void) {
   Nop();
   __asm__ ("Reset");
 }
+
+

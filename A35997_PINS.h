@@ -77,7 +77,7 @@
 
 #define PIN_RS422_DE                         _LATC1
 #define TRIS_PIN_RS422_DE                    _TRISC1
-#define OLL_PIN_RS422_DE_ENABLE_TRANSMIT     0
+#define OLL_PIN_RS422_DE_ENABLE_TRANSMIT     1
 
 #define PIN_ENABLE_RF_AMP                    _LATA15
 #define TRIS_PIN_ENABLE_RF_AMP               _TRISA15

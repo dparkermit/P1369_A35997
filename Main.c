@@ -1,8 +1,5 @@
 #include <p30F6014a.h>
 #include <libpic30.h>
-#include <adc12.h>
-#include "LTC2656.h"
-#include "A35997_PINS.h"
 #include "A35997.h"
 
 
@@ -65,10 +62,8 @@ _FOSC(FRC_PLL16 & CSW_FSCM_OFF); // Internal Oscillator is 7.3738MHz with 16x PL
 
 
 // Watchdog Timeout is 2 Millisconds with no pre scallers
-//_FWDT(WDT_ON & WDTPSA_1 & WDTPSB_2);  // Watchdog Timer is enabled, 4ms TIMEOUT
 //_FWDT(WDT_ON & WDTPSA_1 & WDTPSB_16);  // Watchdog Timer is enabled, 32ms TIMEOUT
 _FWDT(WDT_OFF & WDTPSA_1 & WDTPSB_16);  // Watchdog Timer is disnabled, 32ms TIMEOUT
-
 
 //_FBORPOR(PWRT_64 & BORV_27 & PBOR_ON & MCLR_EN); // Brown out and Power on Timer settings
 _FBORPOR(PWRT_OFF & BORV_45 & PBOR_OFF & MCLR_EN); // Brown out and Power on Timer settings
@@ -89,23 +84,6 @@ int main(void) {
     DoA35997StateMachine();
   }
 }
-
-
-// PID Interrupt, this should occur at 100us Intervals
-
-
-// Internal ADC Interrupt
-/*
-  This should occur once every 8 ADC readings (if sample rate is 80 Khz then once every 100us)
-*/
-
-
-// Serial Interrupt
-/*
-  If a new byte has been recieved, move 
- */
-
-
 
 
 

@@ -33,7 +33,7 @@ unsigned int ETMScale16Bit(unsigned int value, unsigned int fractional_multiplie
   fractional_multiplier has range 0-.999985 so to get a gain of exactly 1 use fractional_multiplier = .5(0x8000) and shift_left_bits = 1;
 */
 
-unsigned int RCFilterNTau(unsigned int previous_value, unsigned int reading, unsigned char FILTER_TAU_BITS);
+unsigned int RCFilterNTau(unsigned int previous_value, unsigned int reading, unsigned int FILTER_TAU_BITS);
 /*
   This performs a fast "almost RC" filter where Tau is 2^FILTER_TAU_BITS samples.
   The max value of FILTER_TAU_BITS is 15

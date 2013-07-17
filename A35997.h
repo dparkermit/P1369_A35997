@@ -29,34 +29,6 @@
     Assuming 10MHz SPI and 30MHz Clock then maybe 123 KHz on a good day
   
 
-  INTERNAL ADC INTERRUPT
-    2nd Highest Priority
-    The internal ADC is set up to sample
-    (0) AN14 - Power Level From Customer
-    (1) AN2  - Detector #4 (Reverse 2) - 0
-    (2) AN14 - Power Level From Customer
-    (3) AN3 - Detector #3 (Reverse 1)  - 1 
-    (4) AN14 - Power Level From Customer
-    (5) AN6 - Amplifier Temperature    - 2
-    (6) AN14 - Power Level From Customer
-    (7) AN7 - Spare                    - 3
-    ------- Interrupt --------
-    (8) AN14 - Power Level From Customer
-    (9) AN8 - Detector #1 Temperature  - 4
-    (10)AN14 - Power Level From Customer
-    (11)AN9 - Detector #2 Temperature  - 5
-    (12)AN14 - Power Level From Customer
-    (13)AN10 - Detector #3 Temperature - 6
-    (14)AN14 - Power Level From Customer
-    (15)AN11 - Detector #4 Temperature - 7
-    -------- Average Power Level From Customer ---------
-    -------- RC Filter all the results --------
-    -------- Assuming 96KHz sample rate, 6KHz sample per signal --------
-    -------- RC Filter 2^2 tau for Power level readings (1.5KHz) ------
-    -------- Throw thermal data into 128 point buffer for averaging / RC filtering later ------
-    
-
-
   PID UPDATE INTERRUPT
     This uses TMR1 to generate the 3rd highest priority interrupt   
     The PID update runs at 10KHz (this may be adjusted at a later date)
@@ -104,7 +76,7 @@
 #include "serial_A35997.h"
 #include "faults_A35997.h"
 #include "A35997_CONFIG.h"
-
+#include "version_A35997.h"
 
 /* 
    -------------- Resource Summary  -------------------
@@ -138,10 +110,8 @@
 /* ------------------------------ CLOCK AND TIMING CONFIGURATION ------------------------- */
 #define FCY_CLK                    29495000      // 29.495 MHz
 #define FCY_CLK_MHZ                29.495        // 29.495 MHz
-//#define FCY_CLK                    10000000      // 10 MHz
-//#define FCY_CLK_MHZ                10.000        // 10 MHz
 
-#define UART1_BAUDRATE             124000        // U1 Baud Rate
+#define UART1_BAUDRATE             122000        // U1 Baud Rate
 
 
 
@@ -152,7 +122,6 @@
    --- SPI1 Port ---
    This SPI port is used to connect to the octal DAC
 */
-//#define A35997_SPI1CON_VALUE  (FRAME_ENABLE_OFF & ENABLE_SDO_PIN & SPI_MODE16_ON & SPI_SMP_OFF & SPI_CKE_ON & SLAVE_ENABLE_OFF & CLK_POL_ACTIVE_HIGH & MASTER_ENABLE_ON)
 #define A35997_SPI1CON_VALUE  (FRAME_ENABLE_OFF & ENABLE_SDO_PIN & SPI_MODE16_ON & SPI_SMP_ON & SPI_CKE_ON & SLAVE_ENABLE_OFF & CLK_POL_ACTIVE_HIGH & MASTER_ENABLE_ON)
 #define A35997_SPI1STAT_VALUE (SPI_ENABLE & SPI_IDLE_CON & SPI_RX_OVFLOW_CLR)   
 
@@ -228,17 +197,6 @@
    AN14 - Power Level From Cust   - 8 - This needs to be read with every other sample
 
 
-   BUF0 AN2 - Detector #4 (Reverse 2)  - 0
-   BUF1 AN3 - Detector #3 (Reverse 1)  - 1 
-   BUF2 AN6 - Amplifier Temperature    - 2
-   BUF3 AN8 - Detector #1 Temperature  - 4
-   BUF4 AN9 - Detector #2 Temperature  - 5
-   BUF5 AN10 - Detector #3 Temperature - 6
-   BUF6 AN11 - Detector #4 Temperature - 7
-   BUF7 AN14 - Power Level From Cust   - 8 - This needs to be read with every other sample
-   
-   
-
    The internal ADC is set up to sample
    (BUF0) AN2  - Detector #4 (Reverse B) - 0
    (BUF1) AN14 - Power Level From Customer
@@ -263,19 +221,10 @@
 
 
 #define A35997_ADCON1_VALUE (ADC_MODULE_OFF & ADC_IDLE_STOP & ADC_FORMAT_INTG & ADC_CLK_AUTO & ADC_AUTO_SAMPLING_ON)
-
-// A34760 #define A35997_ADCON2_VALUE (ADC_VREF_AVDD_AVSS & ADC_SCAN_ON & ADC_SAMPLES_PER_INT_11 & ADC_ALT_BUF_OFF & ADC_ALT_INPUT_OFF)
-// A35997 #define A35997_ADCON2_VALUE (ADC_VREF_EXT_EXT & ADC_SCAN_ON & ADC_SAMPLES_PER_INT_8 & ADC_ALT_BUF_ON & ADC_ALT_INPUT_ON)
 #define A35997_ADCON2_VALUE (ADC_VREF_EXT_EXT & ADC_SCAN_ON & ADC_SAMPLES_PER_INT_15 & ADC_ALT_BUF_OFF & ADC_ALT_INPUT_ON)
-
-//#define A35997_ADCHS_VALUE  (ADC_CH0_POS_SAMPLEA_AN14 & ADC_CH0_NEG_SAMPLEA_VREFN & ADC_CH0_POS_SAMPLEA_AN14 & ADC_CH0_NEG_SAMPLEB_VREFN)
 #define A35997_ADCHS_VALUE  (ADC_CH0_POS_SAMPLEA_AN2 & ADC_CH0_NEG_SAMPLEA_VREFN & ADC_CH0_POS_SAMPLEB_AN14 & ADC_CH0_NEG_SAMPLEB_VREFN)
-
 #define A35997_ADPCFG_VALUE (ENABLE_AN2_ANA & ENABLE_AN3_ANA & ENABLE_AN4_ANA & ENABLE_AN5_ANA & ENABLE_AN6_ANA & ENABLE_AN7_ANA & ENABLE_AN8_ANA & ENABLE_AN9_ANA & ENABLE_AN10_ANA & ENABLE_AN11_ANA & ENABLE_AN14_ANA)
-
 #define A35997_ADCSSL_VALUE (SKIP_SCAN_AN0 & SKIP_SCAN_AN1 & SKIP_SCAN_AN4 & SKIP_SCAN_AN5 & SKIP_SCAN_AN7 & SKIP_SCAN_AN12 & SKIP_SCAN_AN13 & SKIP_SCAN_AN15 )
-//#define A35997_ADCSSL_VALUE (SKIP_SCAN_AN0 & SKIP_SCAN_AN1 & SKIP_SCAN_AN4 & SKIP_SCAN_AN5 & SKIP_SCAN_AN6 & SKIP_SCAN_AN7 & SKIP_SCAN_AN8 & SKIP_SCAN_AN9 & SKIP_SCAN_AN10 & SKIP_SCAN_AN11 & SKIP_SCAN_AN12 & SKIP_SCAN_AN13 & SKIP_SCAN_AN15)
-
 
 // These settings generate a sample rate of 180 KHz
 // With 15 samples per interrupt this yields a sample rate on the individual signals of 12 KHz (96KHz on the program signal)
@@ -292,45 +241,7 @@
 
 
 
-// With these settings, the effective sample rate is around 150K samples/sec
-
-
-
-
 // ----------- Data Structures ------------ //
-
-
-/*
-   ---  magnet supply  ---
-   This is a current source.
-   The voltage set point = current set point * max resistance of the system
-   
-
-   --- filament supply ---  
-   This is a voltage source.  The RKW is a voltage source so we don't have the option of running it in current mode
-   The current set point = voltage set point / min resistance of the system.
-
-
-   --- thyratron cathode heater supply ---
-   This is a voltae source.  Again voltage program is our only option
-   The current set point = voltage set point / min resistance of the system
-
-
-   --- thyratron reservoir heater supply ---
-   This is a voltae source.  Again voltage program is our only option
-   The current set point = voltage set point / min resistance of the system
-
-
-   --- HV Lambda Mode A/B ---
-   This is a voltage source.
-   The voltage is set by the user directly or by the PAC control loop.
-   How is the current set point related to the voltage?  I believe it must be independently set
-   In voltage control mode, the current is allowed to vary wildly
-   In current control mode, the current set point should be set to PID current target.
-   
-   
-   
-*/
 
 typedef struct {
   unsigned int adc_reading_calibrated;                  // RAM - This is the adc_reading after digital filtering and adc calibration
@@ -349,38 +260,12 @@ typedef struct {
 
   unsigned int power_reading_centi_watts;               // RAM - This is detector_level_calibrated converted to watts.
 
+  unsigned int max_power;                               // CONSTANT - Loaded at initialization
+  unsigned int over_max_power_count;                    // RAM - This counts how long it has been over powered for
+  unsigned int over_power_trip_time;                    // CONSTANT - this is how long (in 10ms units) an over power condition must exist to cause a fault
 
 } RF_DETECTOR;
 
-
-extern RF_DETECTOR forward_power_detector_A;
-extern RF_DETECTOR forward_power_detector_B;
-
-extern RF_DETECTOR reverse_power_detector_A;
-extern RF_DETECTOR reverse_power_detector_B;
-
-extern RF_DETECTOR program_power_level;
-
-
-
-
-
-
-/*
-  --- STATE DEFINITIONS ---
-*/
-
-#define STATE_START_UP                       0x01
-#define STATE_FLASH_LEDS_AT_STARTUP          0x05
-
-#define STATE_RF_OFF                         0x11
-
-#define STATE_RF_ON                          0x21
-#define STATE_RF_ON_FOLDBACK                 0x25
-
-#define STATE_FAULT_GENERAL_FAULT            0x31
-#define STATE_FAULT_OVER_TEMP                0x35
-#define STATE_STARTUP_FAILURE                0x37
 
 
 
@@ -400,67 +285,56 @@ void DoA35997StateMachine(void);
 /*
   --- Gobal Variales ---
 */
+extern RF_DETECTOR forward_power_detector_A;
+extern RF_DETECTOR forward_power_detector_B;
+extern RF_DETECTOR reverse_power_detector_A;
+extern RF_DETECTOR reverse_power_detector_B;
+extern RF_DETECTOR program_power_level;
+extern tPID pid_forward_power;
+
+extern unsigned int control_state;
+
+extern volatile unsigned int total_forward_power_centi_watts;
+extern volatile unsigned int total_reverse_power_centi_watts;
+extern volatile unsigned int rf_amplifier_dac_output;
+extern unsigned int software_foldback_mode_enable;
+extern unsigned int LTC2656_write_error_count;
+
+/*
+  --- STATE DEFINITIONS ---
+*/
+
+#define STATE_START_UP                       0x01
+#define STATE_FLASH_LEDS_AT_STARTUP          0x05
+
+#define STATE_RF_OFF                         0x11
+
+#define STATE_RF_ON                          0x21
+#define STATE_RF_ON_FOLDBACK                 0x25
+
+#define STATE_FAULT_GENERAL_FAULT            0x31
+#define STATE_FAULT_OVER_TEMP                0x35
+#define STATE_STARTUP_FAILURE                0x37
 
 
 
-
-// adc variables
-extern volatile unsigned char adc_result_index;
-
-extern unsigned int pfn_rev_current_array[128];
-
-extern unsigned int pac_1_array[128];
-extern unsigned int pac_2_array[128];
-
-extern unsigned int thyratron_cathode_heater_voltage_array[128];
-extern unsigned int thyratron_reservoir_heater_voltage_array[128];
-
-extern unsigned int magnetron_magnet_current_array[128];
-extern unsigned int magnetron_magnet_voltage_array[128];
-
-extern unsigned int magnetron_filament_current_array[128];
-extern unsigned int magnetron_filament_voltage_array[128];
-
-extern unsigned int lambda_vpeak_array[128];
-extern unsigned int lambda_vmon_array[128];
+// Fixed Scale factors
+#define PROGRAM_LEVEL_TO_CENTI_WATTS_SCALE_FACTOR           54272           // 53 Watts per volt 
+#define DETECTOR_TEMPERATURE_ADC_READING_TO_DECI_DEGREES_K  10240           // .15625
 
 
-extern tPID thyratron_reservoir_heater_PID;
-
-extern tPID thyratron_cathode_heater_PID;
-
+// Front Panel LED States
+#define SOLID_GREEN                1
+#define SOLID_BLUE                 2
+#define FLASH_BLUE                 3
+#define SOLID_RED                  4
+#define FLASH_RED                  5
+#define FLASH_ALL_SERIES           6
 
 #define _ISRFASTNOPSV __attribute__((interrupt, shadow, no_auto_psv)) 
 #define _ISRNOPSV __attribute__((interrupt, no_auto_psv)) 
 
 
 
-// EEOROM RAM SHADOWS
-extern signed int ps_magnet_config_ram_copy[16];
-extern signed int ps_filament_config_ram_copy[16];
-extern signed int ps_thyr_cathode_htr_config_ram_copy[16];
-extern signed int ps_thyr_reservoir_htr_config_ram_copy[16];
-extern signed int ps_hv_lambda_mode_A_config_ram_copy[16];
-extern signed int ps_hv_lambda_mode_B_config_ram_copy[16];
-extern signed int ps_magnetron_mode_A_config_ram_copy[16];
-extern signed int ps_magnetron_mode_B_config_ram_copy[16];
-extern signed int pulse_counter_repository_ram_copy[16];
-extern signed int control_loop_cal_data_ram_copy[16];
-
-extern unsigned long EE_address_ps_magnet_config_in_EEPROM;
-extern unsigned long EE_address_ps_filament_config_in_EEPROM;
-extern unsigned long EE_address_ps_thyr_cathode_htr_config_in_EEPROM;
-extern unsigned long EE_address_ps_thyr_reservoir_htr_config_in_EEPROM;
-extern unsigned long EE_address_ps_hv_lambda_mode_A_config_in_EEPROM;
-extern unsigned long EE_address_ps_hv_lambda_mode_B_config_in_EEPROM;
-extern unsigned long EE_address_ps_magnetron_mode_A_config_in_EEPROM;
-extern unsigned long EE_address_ps_magnetron_mode_B_config_in_EEPROM;
-extern unsigned long EE_address_pulse_counter_repository_in_EEPROM;
-extern unsigned long EE_address_control_loop_cal_data_in_EEPROM;
-
-extern unsigned char control_state;
-
-
-#define FRONT_PANEL_LED_NUMBER_OF_FLASHES_AT_STARTUP                 3
 
 #endif
