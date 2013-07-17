@@ -38,10 +38,10 @@ extern unsigned int fault_latched_register;              // Register that latche
 
 
 //#define FAULT_MASK_TEMPERATURE_FAULT              (FAULT_RF_AMPLIFIER_TEMP_OOR | FAULT_FWD_PWR_DET_A_TEMP_OOR | FAULT_FWD_PWR_DET_B_TEMP_OOR | FAULT_REV_PWR_DET_A_TEMP_OOR | FAULT_REV_PWR_DET_B_TEMP_OOR)
-#define FAULT_MASK_TEMPERATURE_FAULT              (FAULT_RF_AMPLIFIER_TEMP_OOR | FAULT_FWD_PWR_DET_A_TEMP_OOR | FAULT_FWD_PWR_DET_B_TEMP_OOR | FAULT_REV_PWR_DET_A_TEMP_OOR)
+#define FAULT_MASK_TEMPERATURE_FAULT              (FAULT_RF_AMPLIFIER_TEMP_OOR | FAULT_FWD_PWR_DET_A_TEMP_OOR | FAULT_FWD_PWR_DET_B_TEMP_OOR | FAULT_REV_PWR_DET_A_TEMP_OOR | FAULT_REV_PWR_DET_B_TEMP_OOR)
 //#define FAULT_MASK_TEMPERATURE_FAULT 0x0000
 
-#define FAULT_MASK_GENERAL_FAULT                  (FAULT_POWER_SUPPLY_1_FAILURE | FAULT_POWER_SUPPLY_2_FAILURE | FAULT_OUTPUT_POWER_LOW | FAULT_OUTPUT_OVER_POWER | FAULT_UNRECOVERABLE_SPI_ERROR | FAULT_FWD_PWR_DET_A_ERROR | FAULT_FWD_PWR_DET_B_ERROR | FAULT_REV_PWR_DET_A_ERROR | FAULT_REV_PWR_DET_B_ERROR)
+#define FAULT_MASK_GENERAL_FAULT                  (FAULT_POWER_SUPPLY_1_FAILURE | FAULT_POWER_SUPPLY_2_FAILURE | FAULT_OUTPUT_POWER_LOW | FAULT_OUTPUT_OVER_POWER | FAULT_UNRECOVERABLE_SPI_ERROR | FAULT_FWD_PWR_DET_A_ERROR | FAULT_FWD_PWR_DET_B_ERROR | FAULT_REV_PWR_DET_A_ERROR | FAULT_REV_PWR_DET_B_ERROR | FAULT_FWD_PWR_MISMATCH | FAULT_REV_PWR_MISMATCH)
 //#define FAULT_MASK_GENERAL_FAULT 0x0000
 
 
@@ -51,14 +51,15 @@ extern unsigned int fault_latched_register;              // Register that latche
 extern unsigned int over_refected_power_count;
 
 unsigned int FaultCheckOverTemp(void);
-unsigned int FaultCheckGeneralFault(void);
-unsigned int CheckReflectedPowerFault(void);
-void ResetAllFaults(void);
 
+unsigned int FaultCheckGeneralFault(void);
+
+unsigned int CheckReflectedPowerFault(void);
+
+void ResetAllFaults(void);
 
 void UpdateFaults(void);
 
-void RollOffCalculation(void);
 
 
 #endif

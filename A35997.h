@@ -107,6 +107,7 @@
 
 
 
+
 /* ------------------------------ CLOCK AND TIMING CONFIGURATION ------------------------- */
 #define FCY_CLK                    29495000      // 29.495 MHz
 #define FCY_CLK_MHZ                29.495        // 29.495 MHz
@@ -299,6 +300,14 @@ extern volatile unsigned int total_reverse_power_centi_watts;
 extern volatile unsigned int rf_amplifier_dac_output;
 extern unsigned int software_foldback_mode_enable;
 extern unsigned int LTC2656_write_error_count;
+extern unsigned int serial_link_power_target;
+
+
+extern unsigned int gui_debug_value_1;
+extern unsigned int gui_debug_value_2;
+extern unsigned int gui_debug_value_3;
+extern unsigned int gui_debug_value_4;
+
 
 /*
   --- STATE DEFINITIONS ---

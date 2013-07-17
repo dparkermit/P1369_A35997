@@ -27,7 +27,10 @@ const unsigned int detector_voltage_to_power_look_up_table[4096] = {DETECTOR_LOO
 // Debugging Information
 // DPARKER - WHERE ARE THESE USED????
 unsigned int spi2_bus_error_count;
-
+unsigned int gui_debug_value_1;
+unsigned int gui_debug_value_2;
+unsigned int gui_debug_value_3;
+unsigned int gui_debug_value_4;
 
 
 
@@ -54,7 +57,8 @@ volatile unsigned int total_forward_power_centi_watts;
 volatile unsigned int total_reverse_power_centi_watts;
 volatile unsigned int rf_amplifier_dac_output;
 unsigned int software_foldback_mode_enable = 0;
-unsigned int LTC2656_write_error_count;
+unsigned int LTC2656_write_error_count = 0;
+unsigned int serial_link_power_target = 0;
 
 //---------- Local  Variables ----------//
 unsigned int software_rf_disable = 1;
@@ -581,7 +585,6 @@ void Do10msTicToc(void) {
 
     FilterADCs();           
     UpdateFaults();
-    RollOffCalculation();  //DPARKER figure this out
     PIN_TEST_POINT_29 = 0;
   }
   PIN_TEST_POINT_28 = 0;
@@ -831,10 +834,6 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   _ASAM = 1; // Internal ADC conversion is synced to this interrupt.  
   _T1IF = 0;
   
-  CalibrateADCReading(&program_power_level, power_level_average);
-  power_target_centi_watts = ConvertProgramLevelToPowerCentiWatts(program_power_level.adc_reading_calibrated);
-  program_power_level.power_reading_centi_watts = power_target_centi_watts;
-  
   
   CalibrateADCReading(&forward_power_detector_A, (AverageADC16(forward_detector_a_array)));
   CalibrateDetectorLevel(&forward_power_detector_A);
@@ -852,13 +851,30 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   } else {
     total_forward_power_centi_watts = (power_long & 0xFFFF);
   }
+
+
+  // --------- Set the target power -----------------
+  // The level from the customer is stored in program_power_level.power_reading_centi_watts
+  // The actual target power is stored in pid_forward_power.controlReference
+
   
+  CalibrateADCReading(&program_power_level, power_level_average);
+  power_target_centi_watts = ConvertProgramLevelToPowerCentiWatts(program_power_level.adc_reading_calibrated);
+
+#ifdef _USE_GUI_TO_SET_POWER
+  power_target_centi_watts = serial_link_power_target;
+#endif
   
+  program_power_level.power_reading_centi_watts = power_target_centi_watts;
   
   if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
     // The RF output is enabled
     PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
-    pid_forward_power.controlReference = (power_target_centi_watts >> 1);
+    if (power_target_centi_watts >= MAX_POWER_TARGET) {
+      pid_forward_power.controlReference = (MAX_POWER_TARGET >> 1);
+    } else {
+      pid_forward_power.controlReference = (power_target_centi_watts >> 1);
+    }
     if (software_foldback_mode_enable) {
       if (pid_forward_power.controlReference > (FOLDBACK_POWER_PROGRAM >> 1)) {
         pid_forward_power.controlReference = (FOLDBACK_POWER_PROGRAM >> 1);
@@ -878,7 +894,8 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     rf_amplifier_dac_output = 0x0000;
   }
   rf_amplifier_dac_output = rf_amplifier_dac_output << 1;
-  
+  rf_amplifier_dac_output = 0xFFFF - rf_amplifier_dac_output;  // Invert the slope of the output
+
   if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
     LTC2656_write_error_count++;
   }

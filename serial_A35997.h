@@ -8,7 +8,9 @@
 
 #define CMD_READ_EEPROM_REGISTER                        0x32
 
+#define CMD_SET_TARGET_POWER                            0x34
 
+#define CMD_RESET                                       0x36
 
 
 
@@ -43,7 +45,10 @@
 #define RAM_READ_OVER_REVERSE_COUNT                             0x50
 #define RAM_READ_SCALE_ERRORS                                   0x51
 #define RAM_READ_LTC2656_ERRORS                                 0x52
-
+#define RAM_READ_GUI_DEBUG_1                                    0x53
+#define RAM_READ_GUI_DEBUG_2                                    0x54
+#define RAM_READ_GUI_DEBUG_3                                    0x55
+#define RAM_READ_GUI_DEBUG_4                                    0x56
 
 
 

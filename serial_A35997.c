@@ -131,12 +131,23 @@ void ExecuteCommand(void) {
   return_command_byte = command_string.command_byte;
   switch (command_string.command_byte) 
     {
-      
+
     case CMD_READ_RAM_VALUE:
       return_data_word = ReadFromRam(command_string.register_byte);
       break;
+
+    case CMD_SET_TARGET_POWER:
+      serial_link_power_target = data_word;
+      break;
+
+    case CMD_RESET:
+#ifdef _ENABLE_GUI_RESET
+      ResetAllFaults();
+#endif
+      break;
+      
     }
-  
+
   // Echo the command that was recieved back to the controller
   SendCommand(return_command_byte, command_string.register_byte, return_data_word);
   command_string.data_state = COMMAND_BUFFER_EMPTY;
@@ -232,7 +243,27 @@ unsigned int ReadFromRam(unsigned int ram_location) {
 
     case RAM_READ_LTC2656_ERRORS:
       data_return = LTC2656_write_error_count;
-	break;
+      break;
+
+    case RAM_READ_GUI_DEBUG_1:
+      data_return = gui_debug_value_1;
+      break;
+
+    case RAM_READ_GUI_DEBUG_2:
+      data_return = gui_debug_value_2;
+      break;
+
+    case RAM_READ_GUI_DEBUG_3:
+      data_return = gui_debug_value_3;
+      break;
+
+    case RAM_READ_GUI_DEBUG_4:
+      data_return = gui_debug_value_4;
+      break;
+
+      
+	
+
 
     }  
   return data_return;
