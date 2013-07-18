@@ -292,6 +292,7 @@ extern RF_DETECTOR reverse_power_detector_A;
 extern RF_DETECTOR reverse_power_detector_B;
 extern RF_DETECTOR program_power_level;
 extern tPID pid_forward_power;
+extern fractional pid_forward_power_kCoeffs[];
 
 extern unsigned int control_state;
 

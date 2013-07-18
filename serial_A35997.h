@@ -12,6 +12,7 @@
 
 #define CMD_RESET                                       0x36
 
+#define CMD_SET_PID                                     0x38
 
 
 
@@ -50,7 +51,9 @@
 #define RAM_READ_GUI_DEBUG_3                                    0x55
 #define RAM_READ_GUI_DEBUG_4                                    0x56
 
-
+#define RAM_READ_PID_P_COEF                                     0x60
+#define RAM_READ_PID_I_COEF                                     0x61
+#define RAM_READ_PID_D_COEF                                     0x62
 
 
 

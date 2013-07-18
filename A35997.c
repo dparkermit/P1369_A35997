@@ -5,7 +5,6 @@
 
 
 
-
 //--------- Local Function Prototypes ---------//
 unsigned int ConvertAmplifierTemperatureADCtoDeciDegreesK(unsigned int adc_reading); 
 unsigned int ConvertDetectorTemperatureADCtoDeciDegreesK(unsigned int adc_reading);
@@ -41,13 +40,13 @@ RF_DETECTOR reverse_power_detector_A;
 RF_DETECTOR reverse_power_detector_B;
 RF_DETECTOR program_power_level;
 tPID pid_forward_power;
-
+fractional pid_forward_power_kCoeffs[] = {0,0,0};
 
 // ------- Local Structures ---------//
 LTC2656 U6_LTC2656;
 fractional pid_forward_power_controlHistory[3] __attribute__ ((section (".ybss, bss, ymemory")));
 fractional pid_forward_power_abcCoefficient[3] __attribute__ ((section (".xbss, bss, xmemory")));
-fractional pid_forward_power_kCoeffs[] = {0,0,0};
+
 
 
 
@@ -383,7 +382,7 @@ void DoA35997StartUp(void) {
   pid_forward_power_kCoeffs[0] = Q15(POWER_PID_P_COMPONENT);
   pid_forward_power_kCoeffs[1] = Q15(POWER_PID_I_COMPONENT);
   pid_forward_power_kCoeffs[2] = Q15(POWER_PID_D_COMPONENT);
-  PIDCoeffCalc(&pid_forward_power_kCoeffs[0], &pid_forward_power);             /*Derive the a,b, & c coefficients from the Kp, Ki & Kd */
+  PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);             /*Derive the a,b, & c coefficients from the Kp, Ki & Kd */
 
   // --------------- Initialize U6 - LTC2656 ------------------------- //
   U6_LTC2656.pin_cable_select_not = _PIN_RD15;
@@ -833,8 +832,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
 
   _ASAM = 1; // Internal ADC conversion is synced to this interrupt.  
   _T1IF = 0;
-  
-  
+
+
+  // ---------------- Calculate the Forward Power --------------- //
   CalibrateADCReading(&forward_power_detector_A, (AverageADC16(forward_detector_a_array)));
   CalibrateDetectorLevel(&forward_power_detector_A);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_A);
@@ -843,7 +843,6 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   CalibrateDetectorLevel(&forward_power_detector_B);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
   
-  //total_forward_power_centi_watts = forward_power_detector_B.power_reading_centi_watts + forward_power_detector_A.power_reading_centi_watts;
   power_long = forward_power_detector_A.power_reading_centi_watts;
   power_long += forward_power_detector_B.power_reading_centi_watts;
   if (power_long >= 0xFFFF) {
@@ -852,42 +851,56 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     total_forward_power_centi_watts = (power_long & 0xFFFF);
   }
 
+  pid_forward_power.measuredOutput = (total_forward_power_centi_watts >> 1);
+  
 
-  // --------- Set the target power -----------------
-  // The level from the customer is stored in program_power_level.power_reading_centi_watts
-  // The actual target power is stored in pid_forward_power.controlReference
-
+  // --------- Calculate the target power ----------------- //
+  // program_power_level.power_reading_centi_watts is the "programed power", this is not limited by range or state and is only used by the GUI
+  // pid_forward_power.controlReference is the working "target power", this is limited by min/max values and state
   
   CalibrateADCReading(&program_power_level, power_level_average);
   power_target_centi_watts = ConvertProgramLevelToPowerCentiWatts(program_power_level.adc_reading_calibrated);
-
+  
 #ifdef _USE_GUI_TO_SET_POWER
   power_target_centi_watts = serial_link_power_target;
 #endif
   
-  program_power_level.power_reading_centi_watts = power_target_centi_watts;
+  program_power_level.power_reading_centi_watts = power_target_centi_watts;  // Store this value for use by the GUI
+
+
+  // First check that target is less than the Max power, if the target is greater than max power, set it to max power
+  if (power_target_centi_watts >= MAX_POWER_TARGET) {
+    power_target_centi_watts = MAX_POWER_TARGET;
+  } 
+  
+  // If we are in foldback mode, limit the power to the max foldback power
+  if (software_foldback_mode_enable) {
+    if (power_target_centi_watts > FOLDBACK_POWER_PROGRAM) {
+      power_target_centi_watts = FOLDBACK_POWER_PROGRAM;
+    }
+  }
   
   if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
-    // The RF output is enabled
+    // The RF output should be enabled
     PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
-    if (power_target_centi_watts >= MAX_POWER_TARGET) {
-      pid_forward_power.controlReference = (MAX_POWER_TARGET >> 1);
-    } else {
-      pid_forward_power.controlReference = (power_target_centi_watts >> 1);
-    }
-    if (software_foldback_mode_enable) {
-      if (pid_forward_power.controlReference > (FOLDBACK_POWER_PROGRAM >> 1)) {
-        pid_forward_power.controlReference = (FOLDBACK_POWER_PROGRAM >> 1);
-      }
-    }
+    pid_forward_power.controlReference = power_target_centi_watts >> 1;
+    PID(&pid_forward_power);
   } else {
     // The RF Output should be disabled
     PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
     pid_forward_power.controlReference = 0;
+    pid_forward_power.controlOutput = 0;
   }
   
-  pid_forward_power.measuredOutput = (total_forward_power_centi_watts >> 1);
-  PID(&pid_forward_power);
+  // Do not let the PID loop saturate at negative 1, make it saturate at zero
+  // This will make recovery from negative saturation much faster
+  if (pid_forward_power.controlOutput <= 0) {
+    pid_forward_power_controlHistory[0] = 0;
+    pid_forward_power_controlHistory[1] = 0;
+    pid_forward_power_controlHistory[2] = 0;
+    pid_forward_power.controlOutput = 0;
+  }
+  
   
   rf_amplifier_dac_output = pid_forward_power.controlOutput;
   if (rf_amplifier_dac_output & 0x8000) {
@@ -895,7 +908,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   }
   rf_amplifier_dac_output = rf_amplifier_dac_output << 1;
   rf_amplifier_dac_output = 0xFFFF - rf_amplifier_dac_output;  // Invert the slope of the output
-
+  
   if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
     LTC2656_write_error_count++;
   }

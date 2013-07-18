@@ -137,9 +137,32 @@ void ExecuteCommand(void) {
       break;
 
     case CMD_SET_TARGET_POWER:
+      PIN_TEST_POINT_30 = 1;
       serial_link_power_target = data_word;
+      PIN_TEST_POINT_30 = 0;
       break;
 
+
+    case CMD_SET_PID:
+      switch (command_string.register_byte)
+	{
+	case RAM_READ_PID_P_COEF:
+	  pid_forward_power_kCoeffs[0] = data_word;
+	  PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);
+	  break;
+	  
+	case RAM_READ_PID_I_COEF:
+	  pid_forward_power_kCoeffs[1] = data_word;
+	  PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);
+	  break;
+	  
+	case RAM_READ_PID_D_COEF:
+	  pid_forward_power_kCoeffs[2] = data_word;
+	  PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);
+	  break;
+	}
+      break;
+      
     case CMD_RESET:
 #ifdef _ENABLE_GUI_RESET
       ResetAllFaults();
@@ -261,9 +284,17 @@ unsigned int ReadFromRam(unsigned int ram_location) {
       data_return = gui_debug_value_4;
       break;
 
-      
-	
+    case RAM_READ_PID_P_COEF:
+      data_return = pid_forward_power_kCoeffs[0];
+      break;
 
+    case RAM_READ_PID_I_COEF:
+      data_return = pid_forward_power_kCoeffs[1];
+      break;
+
+    case RAM_READ_PID_D_COEF:
+      data_return = pid_forward_power_kCoeffs[2];
+      break;
 
     }  
   return data_return;
