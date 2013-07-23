@@ -148,17 +148,23 @@ void ExecuteCommand(void) {
 	{
 	case RAM_READ_PID_P_COEF:
 	  pid_forward_power_kCoeffs[0] = data_word;
+	  _T1IE = 0;
 	  PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);
+	  _T1IE = 1;
 	  break;
 	  
 	case RAM_READ_PID_I_COEF:
 	  pid_forward_power_kCoeffs[1] = data_word;
+	  _T1IE = 0;
 	  PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);
+	  _T1IE = 1;
 	  break;
 	  
 	case RAM_READ_PID_D_COEF:
 	  pid_forward_power_kCoeffs[2] = data_word;
+	  _T1IE = 0;
 	  PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);
+	  _T1IE = 1;
 	  break;
 	}
       break;
