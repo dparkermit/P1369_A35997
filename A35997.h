@@ -253,7 +253,7 @@ typedef struct {
   signed int adc_cal_offset;                            // EEPROM CONSTANT - Used to calibrate the board for DC offsets. (adc offset, op-amp offsets)
   signed int adc_cal_offset_thermal_adjust;             // EEPROM_CONSTANT - Used to calibrate the previous value for thermal changes from 50*C
 
-  unsigned int detector_temperature;                    // RAM - This is the current temperature of the detector (in K) as determined from the ADC reading.
+  unsigned int detector_temperature;                    // RAM - This is the current temperature of the detector (in centi K) as determined from the ADC reading.
                                                         // This adc reading is not calibrated
   unsigned int detector_level_calibrated;               // RAM - calibrats the adc reading for the detector device and temperature characteristics
                                                         // DPARKER, not sure how this is going to be implemented yet.  Probably a table with offset/ramp from different power ranges
@@ -266,8 +266,13 @@ typedef struct {
   unsigned int over_power_trip_time;                    // CONSTANT - this is how long (in 10ms units) an over power condition must exist to cause a fault
 
 
+
+  long detector_milli_dB;
+  
   unsigned int detector_scale_factor;
+  int detector_scale_temp_co;
   long detector_intercept_milli_dB;
+  int detector_intercept_temp_co;
 
   unsigned int pad_attenuation_milli_dB;
   unsigned int coupler_attenuation_milli_dB;

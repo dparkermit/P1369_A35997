@@ -185,6 +185,8 @@ void UpdateFaults(void) {
       over_refected_power_count--;
     }
   }
+
+  fault_latched_register &= FAULT_MASK;
 }
 
 

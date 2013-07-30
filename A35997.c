@@ -4,7 +4,14 @@
 
 
 int GetCombinerTemperatureDelta(unsigned int temperature);
-long ConverterADCReadingToMillidB(RF_DETECTOR* ptr_rf_det);
+
+
+void UpdateDetectorPowerReadings(RF_DETECTOR* ptr_rf_det);
+
+unsigned int ConvertMillidBToCentiWatts(long milli_dB);
+void UpdateCombinerTemperature(unsigned int power_centi_watts);
+
+unsigned int temperature_combiner;
 
 
 //--------- Local Function Prototypes ---------//
@@ -23,6 +30,7 @@ void FilterADCs(void);
 // --------- Constant Tables in Stored in Program Memory ---------------//
 const unsigned int detector_voltage_to_power_look_up_table[4096] = {DETECTOR_LOOK_UP_TABLE_VALUES};
 
+const unsigned int dB_to_power_look_up_table[4500] = {DB_TO_POWER_LOOK_UP_TABLE_VALUES};
 
 
 // Debugging Information
@@ -234,6 +242,16 @@ void DoA35997StartUp(void) {
   forward_power_detector_A.max_power = FORWARD_DETECTOR_MAX_POWER;
   forward_power_detector_A.over_power_trip_time = FORWARD_OVER_POWER_TRIP_TIME_10MS_UNITS;
 
+  forward_power_detector_A.detector_scale_factor = DETECTOR_A1A4_SCALE_FACTOR_313K;
+  forward_power_detector_A.detector_scale_temp_co = DETECTOR_A1A4_SCALE_FACTOR_TEMP_CO;
+  forward_power_detector_A.detector_intercept_milli_dB = DETECTOR_A1A4_INTERCEPT_313K;
+  forward_power_detector_A.detector_intercept_temp_co = DETECTOR_A1A4_INTERCEPT_TEMP_CO;
+  forward_power_detector_A.pad_attenuation_milli_dB = FORWARD_1_PAD;
+  forward_power_detector_A.coupler_attenuation_milli_dB = FORWARD_1_COUPLER;
+
+
+
+
   // Forward Detector B
   forward_power_detector_B.adc_cal_gain = 0x8000;  // dparker read all this cal constant from EEPROM
   forward_power_detector_B.adc_cal_gain_thermal_adjust = 0;
@@ -242,13 +260,33 @@ void DoA35997StartUp(void) {
   forward_power_detector_B.max_power = FORWARD_DETECTOR_MAX_POWER;
   forward_power_detector_B.over_power_trip_time = FORWARD_OVER_POWER_TRIP_TIME_10MS_UNITS;
   
-  // Reverse Detector B
+  forward_power_detector_B.detector_scale_factor = DETECTOR_A1A3_SCALE_FACTOR_313K;
+  forward_power_detector_B.detector_scale_temp_co = DETECTOR_A1A3_SCALE_FACTOR_TEMP_CO;
+  forward_power_detector_B.detector_intercept_milli_dB = DETECTOR_A1A3_INTERCEPT_313K;
+  forward_power_detector_B.detector_intercept_temp_co = DETECTOR_A1A3_INTERCEPT_TEMP_CO;
+  forward_power_detector_B.pad_attenuation_milli_dB = FORWARD_2_PAD;
+  forward_power_detector_B.coupler_attenuation_milli_dB = FORWARD_2_COUPLER;
+
+
+
+
+  // Reverse Detector A
   reverse_power_detector_A.adc_cal_gain = 0x8000;  // dparker read all this cal constant from EEPROM
   reverse_power_detector_A.adc_cal_gain_thermal_adjust = 0;
   reverse_power_detector_A.adc_cal_offset = 0x0000;
   reverse_power_detector_A.adc_cal_offset_thermal_adjust = 0;
   reverse_power_detector_A.max_power = REVERSE_DETECTOR_MAX_POWER;
   reverse_power_detector_A.over_power_trip_time = REVERSE_OVER_POWER_TRIP_TIME_10MS_UNITS;
+
+  reverse_power_detector_A.detector_scale_factor = DETECTOR_A1A6_SCALE_FACTOR_313K;
+  reverse_power_detector_A.detector_scale_temp_co = DETECTOR_A1A6_SCALE_FACTOR_TEMP_CO;
+  reverse_power_detector_A.detector_intercept_milli_dB = DETECTOR_A1A6_INTERCEPT_313K;
+  reverse_power_detector_A.detector_intercept_temp_co = DETECTOR_A1A6_INTERCEPT_TEMP_CO;
+  reverse_power_detector_A.pad_attenuation_milli_dB = REVERSE_1_PAD;
+  reverse_power_detector_A.coupler_attenuation_milli_dB = REVERSE_1_COUPLER;
+
+
+
 
   // Reverse Detector B
   reverse_power_detector_B.adc_cal_gain = 0x8000;  // dparker read all this cal constant from EEPROM
@@ -258,6 +296,13 @@ void DoA35997StartUp(void) {
   reverse_power_detector_B.max_power = REVERSE_DETECTOR_MAX_POWER;
   reverse_power_detector_B.over_power_trip_time = REVERSE_OVER_POWER_TRIP_TIME_10MS_UNITS;
     
+  reverse_power_detector_B.detector_scale_factor = DETECTOR_A1A5_SCALE_FACTOR_313K;
+  reverse_power_detector_B.detector_scale_temp_co = DETECTOR_A1A5_SCALE_FACTOR_TEMP_CO;
+  reverse_power_detector_B.detector_intercept_milli_dB = DETECTOR_A1A5_INTERCEPT_313K;
+  reverse_power_detector_B.detector_intercept_temp_co = DETECTOR_A1A5_INTERCEPT_TEMP_CO;
+  reverse_power_detector_B.pad_attenuation_milli_dB = REVERSE_2_PAD;
+  reverse_power_detector_B.coupler_attenuation_milli_dB = REVERSE_2_COUPLER;
+
 
   // --------- BEGIN IO PIN CONFIGURATION ------------------
   
@@ -488,11 +533,14 @@ void CalibrateADCReading(RF_DETECTOR* ptr_rf_det, unsigned int adc_reading) {
   ptr_rf_det->adc_reading_calibrated = cal_reading;
 }
 
+
+/*
 void CalibrateDetectorLevel(RF_DETECTOR* ptr_rf_det) {
   ptr_rf_det->detector_level_calibrated = ptr_rf_det->adc_reading_calibrated;
   // DPARKER - Need to do calibration . . . Also need to figure out how to do calibration
 }
-
+*/
+/*
 void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* ptr_rf_det) {
   unsigned int remainder;
   unsigned int location;
@@ -516,9 +564,13 @@ void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* ptr_rf_det) {
     power >>= 4;
     power += value2;
   }
+  
+  // DPARKER - ADDED FIX for 3dB Detector reading error - THIS IS A HACK - REMOVE
+  power >>= 1;
+
   ptr_rf_det->power_reading_centi_watts = power;
 }
-
+*/
 unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level) {
   // 10V program = 530 Watts
   // Input scalling = V_in / 5
@@ -587,6 +639,8 @@ void Do10msTicToc(void) {
     FilterADCs();           
     UpdateFaults();
     PIN_TEST_POINT_29 = 0;
+    
+    UpdateCombinerTemperature(total_forward_power_centi_watts);
   }
   PIN_TEST_POINT_28 = 0;
 }
@@ -663,11 +717,22 @@ void DoFrontPanelLED(void) {
 
 
 
+void UpdateDetectorPowerReadings(RF_DETECTOR* ptr_rf_det) {
 
-long ConverterADCReadingToMillidB(RF_DETECTOR* ptr_rf_det) {
-  long delta;
+  unsigned long u_long_temp;
+  long s_long_temp;
+
+
+  long intercept;  
+
+  unsigned int scale_factor;
+  
+
+  int delta_detector_temperature;
+  int temperature_adjust;
   long detector_milli_dB;
-  unsigned int temperature_combiner;
+
+  
 
   /* 
      Step 1, use the slope and intercept values to generate the dB level
@@ -680,13 +745,45 @@ long ConverterADCReadingToMillidB(RF_DETECTOR* ptr_rf_det) {
      To keep the 16 bit math simple -   
      scale_factor = ((Slope(dB/V) * 1000) * 1.024) (This is a constant for a detector and stored in EEPROM)
      Delta = (scale_factor * ADC_Reading) >> 15
+
+     scale_factor temperature adjust
+     temperature_adjust = detector_scale_temp_co * (delta_detector_temperature_deci_watts / 8) / 16     
+     The temperature co_eff must have a built in multiplier of 8*16/10 = 12.8
+     
+     intercept temperature adjusts
+     temperature_adjust = detector_intercept_temp_co * (delta_detector_temperature_centi_watts / 64) / 16
+     The temperature co_eff must have a built in multiplier of 64*16/100 = 10.24
+
   */
+
+  //
+  s_long_temp = ptr_rf_det->detector_temperature;
+  s_long_temp -= 3130;
+  s_long_temp /= 8;                                        //  DPARKER get rid of this divide 
+  delta_detector_temperature = s_long_temp;
+
+
+  // Calculate the temperature scaled slope
+  temperature_adjust = ptr_rf_det->detector_scale_temp_co;
+  temperature_adjust *= delta_detector_temperature;        // DPARKER, do we need to check for overflow?
+  temperature_adjust /= 16;                                // DPARKER bit shifting only works with unsigned ints
+  scale_factor = ptr_rf_det->detector_scale_factor;        
+  scale_factor += temperature_adjust;
   
-  delta = ptr_rf_det->detector_scale_factor * ptr_rf_det->adc_reading_calibrated;
-  delta >>= 15;
+  // Calculate the temperature scaled intercept
+  temperature_adjust = ptr_rf_det->detector_intercept_temp_co;
+  temperature_adjust *= delta_detector_temperature;
+  temperature_adjust /= 16; // DPARKER bit shifting only works with unsigned ints
+  intercept = ptr_rf_det->detector_intercept_milli_dB;
+  intercept += temperature_adjust;                         // DPARKER will this mixed signed/unsigned math work???
   
-  detector_milli_dB = ptr_rf_det->detector_intercept_milli_dB - delta;
+
+  u_long_temp = scale_factor;
+  u_long_temp *= ptr_rf_det->adc_reading_calibrated;
+  u_long_temp >>= 15; // DPARKER bit shifting only works with unsigned ints
   
+  detector_milli_dB = intercept;
+  detector_milli_dB -= u_long_temp;             // DPARKER will this mixed signed/unsigned math work???
   
   /*
     Now we need to add in all the system offsets
@@ -725,8 +822,72 @@ long ConverterADCReadingToMillidB(RF_DETECTOR* ptr_rf_det) {
   detector_milli_dB += GetCombinerTemperatureDelta(temperature_combiner);
 
 
-  return detector_milli_dB;
+  /*
+    Add in all other constant system corrections
+  */
+
+  detector_milli_dB += 0; // DPARKER what to put here???
+
+  
+  ptr_rf_det->detector_milli_dB = detector_milli_dB;
+  
+  ptr_rf_det->power_reading_centi_watts = ConvertMillidBToCentiWatts(detector_milli_dB);
+  
 }
+
+
+void UpdateCombinerTemperature(unsigned int power_centi_watts) {
+
+  temperature_combiner = 0;
+}
+
+unsigned int ConvertMillidBToCentiWatts(long milli_dB) {
+  unsigned int location;
+  unsigned int remainder;
+  unsigned int value1;
+  unsigned int value2;
+  unsigned int power;
+
+  /*
+    We have a 5000 Element Array
+    It stores the power in dB according to the following formula
+    Table[n] = 10^((n*8 - 10000)/1000/8)
+    
+    To converter milli dB to index the following transform must be preformed
+    index = (milli_dB + 10,000) / 8
+  */
+  
+  milli_dB += 10000;  // Add 10dB Offset so we can get powers of less than one what
+
+  if (milli_dB <= 0) {
+    // We can't have negative indexs so if the power is less than .1 watt, it gets converted to .1 watt.
+    location = 0;
+  } else {
+    if (milli_dB >= 35984) {
+      // This is the (max index of our table - 1) * 8
+      milli_dB = 35984;
+    }
+    location = milli_dB;
+  }
+  remainder = location & 0b00000111;
+  value1 = dB_to_power_look_up_table[location];
+  value2 = dB_to_power_look_up_table[location+1];
+  
+  if (value2 >= value1) {
+    power = value2-value1;
+    power *= remainder;
+    power >>= 3;
+    power += value1;
+  } else {
+    power = value1-value2;
+    power *= (8 - remainder);
+    power >>= 3;
+    power += value2;
+  }
+
+  return power;
+}
+
 
 int GetCombinerTemperatureDelta(unsigned int temperature) {
   return 0;
@@ -777,13 +938,15 @@ void FilterADCs(void) {
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
   //reverse_power_detector_A.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading);
   reverse_power_detector_A.detector_level_calibrated = RCFilterNTau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
-  ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_A);
+  UpdateDetectorPowerReadings(&reverse_power_detector_A);
+  //ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_A);
   
   averaged_adc_reading = AverageADC128(reverse_detector_b_array);
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
   //reverse_power_detector_B.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading);
   reverse_power_detector_B.detector_level_calibrated = RCFilterNTau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
-  ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_B);
+  UpdateDetectorPowerReadings(&reverse_power_detector_B);
+  //ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_B);
 
   power_long = reverse_power_detector_A.power_reading_centi_watts;
   power_long += reverse_power_detector_B.power_reading_centi_watts;
@@ -910,12 +1073,14 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
 
   // ---------------- Calculate the Forward Power --------------- //
   CalibrateADCReading(&forward_power_detector_A, (AverageADC16(forward_detector_a_array)));
-  CalibrateDetectorLevel(&forward_power_detector_A);
-  ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_A);
+  UpdateDetectorPowerReadings(&forward_power_detector_A);
+  //CalibrateDetectorLevel(&forward_power_detector_A);
+  //ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_A);
   
   CalibrateADCReading(&forward_power_detector_B, AverageADC16(forward_detector_b_array));
-  CalibrateDetectorLevel(&forward_power_detector_B);
-  ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
+  UpdateDetectorPowerReadings(&forward_power_detector_B);
+  //CalibrateDetectorLevel(&forward_power_detector_B);
+  //ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
   
   power_long = forward_power_detector_A.power_reading_centi_watts;
   power_long += forward_power_detector_B.power_reading_centi_watts;
