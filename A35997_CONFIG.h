@@ -4,6 +4,8 @@
 
 #define _USE_GUI_TO_SET_POWER                                            // Comment this line out for the production system
 #define _ENABLE_GUI_RESET                                                // Comment this line out to disable the serial link fault reset
+//#define _OPEN_LOOP_MODE                                                  // Comment this line out to disable open loop mode
+
 
 #define POWER_PID_P_COMPONENT                              .2
 #define POWER_PID_I_COMPONENT                              .5
@@ -61,6 +63,29 @@
 #define MAX_FOLDBACK_REFLECTED_POWER                       12500   // 125 Watts
 #define MAX_OVER_REFLECTED_TIME                            1500    // 15 Seconds
 #define MAX_OVER_REFLECTED_TIME_HYSTERESIS                 200     // 2 Seconds
+
+
+
+
+
+
+// ----------------- DETECTOR CONFIGURATION NEEDS TO GO INTO EEPROM ---------------------//
+#define DETECTOR_A1A3_SCALE_FACTOR                         41796
+#define DETECTOR_A1A3_INTERCEPT                            -653
+
+#define DETECTOR_A1A4_SCALE_FACTOR                         41457
+#define DETECTOR_A1A4_INTERCEPT                            -777
+
+#define DETECTOR_A1A5_SCALE_FACTOR                         41457
+#define DETECTOR_A1A5_INTERCEPT                            -170
+
+#define DETECTOR_A1A6_SCALE_FACTOR                         42489
+#define DETECTOR_A1A6_INTERCEPT                            -66
+
+
+
+
+
 
 
 #endif

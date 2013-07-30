@@ -265,6 +265,18 @@ typedef struct {
   unsigned int over_max_power_count;                    // RAM - This counts how long it has been over powered for
   unsigned int over_power_trip_time;                    // CONSTANT - this is how long (in 10ms units) an over power condition must exist to cause a fault
 
+
+  unsigned int detector_scale_factor;
+  long detector_intercept_milli_dB;
+
+  unsigned int pad_attenuation_milli_dB;
+  unsigned int coupler_attenuation_milli_dB;
+
+  unsigned int serial_number;
+  unsigned int calibration_date;
+  
+
+
 } RF_DETECTOR;
 
 

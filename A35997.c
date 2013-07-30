@@ -3,6 +3,8 @@
 #include "A35997_DETECTOR_LOOK_UP_TABLE.h"
 
 
+int GetCombinerTemperatureDelta(unsigned int temperature);
+long ConverterADCReadingToMillidB(RF_DETECTOR* ptr_rf_det);
 
 
 //--------- Local Function Prototypes ---------//
@@ -659,6 +661,78 @@ void DoFrontPanelLED(void) {
 }
 
 
+
+
+
+long ConverterADCReadingToMillidB(RF_DETECTOR* ptr_rf_det) {
+  long delta;
+  long detector_milli_dB;
+  unsigned int temperature_combiner;
+
+  /* 
+     Step 1, use the slope and intercept values to generate the dB level
+     
+     milli_dB = Intercept_milli_dB - Delta 
+     
+     Delta = slope(dB/V)*(2.048 V / 2^16 bits) * (1000 millidB / dB) * ADC_Reading(bits)
+
+
+     To keep the 16 bit math simple -   
+     scale_factor = ((Slope(dB/V) * 1000) * 1.024) (This is a constant for a detector and stored in EEPROM)
+     Delta = (scale_factor * ADC_Reading) >> 15
+  */
+  
+  delta = ptr_rf_det->detector_scale_factor * ptr_rf_det->adc_reading_calibrated;
+  delta >>= 15;
+  
+  detector_milli_dB = ptr_rf_det->detector_intercept_milli_dB - delta;
+  
+  
+  /*
+    Now we need to add in all the system offsets
+    
+    Constant - Pad Attenuation
+    Constant - Coupler Attenuation
+    
+  */
+
+  detector_milli_dB += ptr_rf_det->pad_attenuation_milli_dB;
+
+  detector_milli_dB += ptr_rf_det->coupler_attenuation_milli_dB;
+
+  /*
+    Temperature calibration
+    We need to calibrate our readings based on the temperature of the combiner/coupler.
+
+    Assumptions.
+    Thermal drift is a function of the temperature of the Combiner
+    We are going to use two time constant
+    Temperature = Base Plate temperature (measured) + Slow Temperature Constant (bulk material around Combiner) + Fast Temperature Constant (Combiner Material)
+    
+    Once every 10mS execute the following
+    temperature_fast = temperature_fast * time_constant_fast + forward_power * fast_multiplier
+
+    Once every 640ms seconds (64 10ms Invervals) - execute the following 
+    temperature_slow = temperature_slow * time_constant_slow + forward_power * slow_multiplier
+
+    temperature_combiner = temperature_fast + temperature_slow + base_plate_temperature
+
+    This temperature is not normalized to deg C!!!
+
+  */
+
+
+  detector_milli_dB += GetCombinerTemperatureDelta(temperature_combiner);
+
+
+  return detector_milli_dB;
+}
+
+int GetCombinerTemperatureDelta(unsigned int temperature) {
+  return 0;
+}
+
+
 void FilterADCs(void) {
   /*
     Forward Detector A and B are read by the external ADC and filtered by the SPI Interrupt because their updated values are needed immediately
@@ -908,7 +982,11 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   }
   rf_amplifier_dac_output = rf_amplifier_dac_output << 1;
   rf_amplifier_dac_output = 0xFFFF - rf_amplifier_dac_output;  // Invert the slope of the output
-  
+
+#ifdef _OPEN_LOOP_MODE
+  rf_amplifier_dac_output = program_power_level.adc_reading_calibrated;
+#endif
+
   if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
     LTC2656_write_error_count++;
   }
