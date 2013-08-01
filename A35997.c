@@ -516,6 +516,11 @@ void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* ptr_rf_det) {
     power >>= 4;
     power += value2;
   }
+
+  power >>= 1;
+
+  power = ETMScale16Bit(power, 55705, 0);  // Multiply by .85
+
   ptr_rf_det->power_reading_centi_watts = power;
 }
 
@@ -917,8 +922,16 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   CalibrateDetectorLevel(&forward_power_detector_B);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
   
+  /*
+    Removed the next two lines for testing single detector;
   power_long = forward_power_detector_A.power_reading_centi_watts;
   power_long += forward_power_detector_B.power_reading_centi_watts;
+
+  and replaced with the following 2 lines
+  */
+  power_long = forward_power_detector_B.power_reading_centi_watts;
+  power_long <<= 1;
+
   if (power_long >= 0xFFFF) {
     total_forward_power_centi_watts = 0xFFFF;
   } else {

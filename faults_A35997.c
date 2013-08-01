@@ -185,6 +185,8 @@ void UpdateFaults(void) {
       over_refected_power_count--;
     }
   }
+
+  fault_latched_register &= ACTIVE_FAULT_MASK;
 }
 
 
@@ -230,8 +232,6 @@ unsigned int CheckForwardDetectorMismatch(void) {
       forward_detector_mismatch_count--;
     }
   }
-  gui_debug_value_1 = forward_detector_mismatch_count;
-  gui_debug_value_2 = max_difference;
 
 
 
@@ -272,8 +272,6 @@ unsigned int CheckReverseDetectorMismatch(void) {
     }
   }
 
-  gui_debug_value_3 = reverse_detector_mismatch_count;
-  gui_debug_value_4 = max_difference;
 
   if (reverse_detector_mismatch_count >= REVERSE_DETECTOR_MISMATCH_TIME) {
     return 1;

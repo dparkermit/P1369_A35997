@@ -7,9 +7,13 @@
 //#define _OPEN_LOOP_MODE                                                  // Comment this line out to disable open loop mode
 
 
-#define POWER_PID_P_COMPONENT                              .2
-#define POWER_PID_I_COMPONENT                              .5
-#define POWER_PID_D_COMPONENT                              .01
+//#define POWER_PID_P_COMPONENT                              .2
+//#define POWER_PID_I_COMPONENT                              .5
+//#define POWER_PID_D_COMPONENT                              .01
+
+#define POWER_PID_P_COMPONENT                              .01
+#define POWER_PID_I_COMPONENT                              .1
+#define POWER_PID_D_COMPONENT                              .00
 
 
 #define MINIMUM_POWER_TARGET                               100           // 1 Watt - Below this level the amplifier will be disabled
