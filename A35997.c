@@ -21,8 +21,6 @@ unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level);
 void DoFrontPanelLED(void);
 void DoA35997StartUp(void);
 void CalibrateADCReading(RF_DETECTOR* ptr_rf_det, unsigned int adc_reading);
-void CalibrateDetectorLevel(RF_DETECTOR* ptr_rf_det);
-void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* ptr_rf_det);
 void Do10msTicToc(void);
 void FilterADCs(void);
 
@@ -33,9 +31,7 @@ const unsigned int detector_voltage_to_power_look_up_table[4096] = {DETECTOR_LOO
 const unsigned int dB_to_power_look_up_table[4500] = {DB_TO_POWER_LOOK_UP_TABLE_VALUES};
 
 
-// Debugging Information
-// DPARKER - WHERE ARE THESE USED????
-unsigned int spi2_bus_error_count;
+// Gui Debugging scratch registers
 unsigned int gui_debug_value_1;
 unsigned int gui_debug_value_2;
 unsigned int gui_debug_value_3;
@@ -61,17 +57,18 @@ fractional pid_forward_power_abcCoefficient[3] __attribute__ ((section (".xbss, 
 
 
 //---------- Global Variables --------- //
-unsigned int control_state;
+volatile unsigned int spi2_state = 0;   // This is used by the spi interupt (written in asm, not C)
 volatile unsigned int total_forward_power_centi_watts;
 volatile unsigned int total_reverse_power_centi_watts;
 volatile unsigned int rf_amplifier_dac_output;
+unsigned int control_state;
 unsigned int software_foldback_mode_enable = 0;
 unsigned int LTC2656_write_error_count = 0;
 unsigned int serial_link_power_target = 0;
 
+
 //---------- Local  Variables ----------//
 unsigned int software_rf_disable = 1;
-
 unsigned int led_pulse_count;
 unsigned int front_panel_led_startup_flash_couter;
 unsigned int front_panel_led_pulse_count;
@@ -80,6 +77,7 @@ unsigned int start_reset_process;
 
 
 //------------- ADC Data Storage Circular Buffers ------------//
+volatile unsigned int adc_result_index;
 unsigned int reverse_detector_a_array[128];
 unsigned int reverse_detector_b_array[128];
 unsigned int rf_amplifier_temperature_array[128];
@@ -88,17 +86,13 @@ unsigned int fwd_rf_det_b_temperature_array[128];
 unsigned int rev_rf_det_a_temperature_array[128];
 unsigned int rev_rf_det_b_temperature_array[128];
 
-volatile unsigned int adc_result_index;
-
-
+volatile unsigned int ad7686_result_index;
 unsigned int forward_detector_a_array[16];
 unsigned int forward_detector_b_array[16];
-
-volatile unsigned int spi2_state = 0;
-volatile unsigned int ad7686_result_index;
-
 unsigned int *fwd_det_a_pointer = forward_detector_a_array;
 unsigned int *fwd_det_b_pointer = forward_detector_b_array;
+
+
 
 
 
@@ -533,44 +527,6 @@ void CalibrateADCReading(RF_DETECTOR* ptr_rf_det, unsigned int adc_reading) {
   ptr_rf_det->adc_reading_calibrated = cal_reading;
 }
 
-
-/*
-void CalibrateDetectorLevel(RF_DETECTOR* ptr_rf_det) {
-  ptr_rf_det->detector_level_calibrated = ptr_rf_det->adc_reading_calibrated;
-  // DPARKER - Need to do calibration . . . Also need to figure out how to do calibration
-}
-*/
-/*
-void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* ptr_rf_det) {
-  unsigned int remainder;
-  unsigned int location;
-  unsigned int value1;
-  unsigned int value2;
-  unsigned int power;
-  
-  remainder = (ptr_rf_det->detector_level_calibrated & 0x000F);
-  location = ptr_rf_det->detector_level_calibrated >> 4;
-  value1 = detector_voltage_to_power_look_up_table[location];
-  value2 = detector_voltage_to_power_look_up_table[location+1];
-  
-  if (value2 >= value1) {
-    power = value2-value1;
-    power *= remainder;
-    power >>= 4;
-    power += value1;
-  } else {
-    power = value1-value2;
-    power *= (16 - remainder);
-    power >>= 4;
-    power += value2;
-  }
-  
-  // DPARKER - ADDED FIX for 3dB Detector reading error - THIS IS A HACK - REMOVE
-  power >>= 1;
-
-  ptr_rf_det->power_reading_centi_watts = power;
-}
-*/
 unsigned int ConvertProgramLevelToPowerCentiWatts(unsigned int program_level) {
   // 10V program = 530 Watts
   // Input scalling = V_in / 5
@@ -775,7 +731,7 @@ void UpdateDetectorPowerReadings(RF_DETECTOR* ptr_rf_det) {
   temperature_adjust *= delta_detector_temperature;
   temperature_adjust /= 16; // DPARKER bit shifting only works with unsigned ints
   intercept = ptr_rf_det->detector_intercept_milli_dB;
-  intercept += temperature_adjust;                         // DPARKER will this mixed signed/unsigned math work???
+  intercept += temperature_adjust;
   
 
   u_long_temp = scale_factor;
@@ -783,7 +739,7 @@ void UpdateDetectorPowerReadings(RF_DETECTOR* ptr_rf_det) {
   u_long_temp >>= 15; // DPARKER bit shifting only works with unsigned ints
   
   detector_milli_dB = intercept;
-  detector_milli_dB -= u_long_temp;             // DPARKER will this mixed signed/unsigned math work???
+  detector_milli_dB -= u_long_temp;
   
   /*
     Now we need to add in all the system offsets
@@ -835,6 +791,8 @@ void UpdateDetectorPowerReadings(RF_DETECTOR* ptr_rf_det) {
   
 }
 
+unsigned int combiner_fast_temperature;
+unsigned int combiner_slow_temperature;
 
 void UpdateCombinerTemperature(unsigned int power_centi_watts) {
 
@@ -849,7 +807,7 @@ unsigned int ConvertMillidBToCentiWatts(long milli_dB) {
   unsigned int power;
 
   /*
-    We have a 5000 Element Array
+    We have a 4500 Element Array
     It stores the power in dB according to the following formula
     Table[n] = 10^((n*8 - 10000)/1000/8)
     
@@ -869,7 +827,9 @@ unsigned int ConvertMillidBToCentiWatts(long milli_dB) {
     }
     location = milli_dB;
   }
+  
   remainder = location & 0b00000111;
+  location >>= 3;
   value1 = dB_to_power_look_up_table[location];
   value2 = dB_to_power_look_up_table[location+1];
   
@@ -935,18 +895,20 @@ void FilterADCs(void) {
   reverse_power_detector_B.detector_temperature = RCFilterNTau(reverse_power_detector_B.detector_temperature, temperature_reading,RC_FILTER_64_TAU);
   
   averaged_adc_reading = AverageADC128(reverse_detector_a_array);
+  gui_debug_value_1 = averaged_adc_reading;
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
   //reverse_power_detector_A.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading);
   reverse_power_detector_A.detector_level_calibrated = RCFilterNTau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
+  gui_debug_value_2 = averaged_adc_reading;
   UpdateDetectorPowerReadings(&reverse_power_detector_A);
-  //ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_A);
   
   averaged_adc_reading = AverageADC128(reverse_detector_b_array);
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
   //reverse_power_detector_B.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading);
   reverse_power_detector_B.detector_level_calibrated = RCFilterNTau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
+  gui_debug_value_4 = averaged_adc_reading;
   UpdateDetectorPowerReadings(&reverse_power_detector_B);
-  //ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_B);
+  
 
   power_long = reverse_power_detector_A.power_reading_centi_watts;
   power_long += reverse_power_detector_B.power_reading_centi_watts;
@@ -962,50 +924,7 @@ void FilterADCs(void) {
 
 
 // SPI2 Interrupt - External ADC
-// SPI2 Interrupt is moved to assembly in A35997_assemblt_functions.s
-
-/*
-#define SPI2_STATE_READ_B_AND_START_CONVERSION 0
-#define SPI2_STATE_START_A_TRANSFER 1
-#define SPI2_STATE_READ_A_AND_START_B_TRANSFER 2
-void _ISRFASTNOPSV _SPI2Interrupt(void) {
-  // With 29.5 MHz Clock this samples each signal at about 100 KHz
-  unsigned int trash;
-  PIN_TEST_POINT_27 = 1;  // Time this interrupt
-  _SPI2IF = 0;
-  switch(spi2_state) {
-  
-  case SPI2_STATE_READ_B_AND_START_CONVERSION:
-    // (*) SPI Interrupt Saves SPIBUF to Data 2, CS2->High, Convert->High. Convert->Low, Exits = 16 bit delay + execution time  
-    PIN_AD7686_2_CS = !OLL_AD7686_SELECT_DEVICE; 
-    PIN_AD7686_CONVERT = !OLL_AD7686_START_CONVERSION;
-    forward_detector_b_array[ad7686_result_index] = SPI2BUF;
-    PIN_AD7686_CONVERT = OLL_AD7686_START_CONVERSION;
-    SPI2BUF = 0xAAAA;
-    spi2_state = SPI2_STATE_START_A_TRANSFER;
-    ad7686_result_index++;
-    ad7686_result_index &= 0b00001111; // 16 element circular buffer
-    break;
-
-  case SPI2_STATE_START_A_TRANSFER:
-    // (*) SPI Interrupt CS1->Low and starts 16 bit transfer, exits = 16 bit delay + execution time
-    trash = SPI2BUF;
-    PIN_AD7686_1_CS = OLL_AD7686_SELECT_DEVICE;
-    SPI2BUF = 0xAAAA;
-    spi2_state = SPI2_STATE_READ_A_AND_START_B_TRANSFER;
-    break;
-    
-  case SPI2_STATE_READ_A_AND_START_B_TRANSFER:
-    PIN_AD7686_1_CS = !OLL_AD7686_SELECT_DEVICE;
-    forward_detector_a_array[ad7686_result_index] = SPI2BUF;
-    PIN_AD7686_2_CS = OLL_AD7686_SELECT_DEVICE;
-    SPI2BUF = 0xAAAA;
-    spi2_state = SPI2_STATE_READ_B_AND_START_CONVERSION;
-    break;
-  }
-  PIN_TEST_POINT_27 = 0;
-}
-*/
+// ---------- SPI2 Interrupt is moved to assembly in A35997_assemblt_functions.s -------------------- //
 
 
 // ADC Interrupt
@@ -1074,13 +993,10 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   // ---------------- Calculate the Forward Power --------------- //
   CalibrateADCReading(&forward_power_detector_A, (AverageADC16(forward_detector_a_array)));
   UpdateDetectorPowerReadings(&forward_power_detector_A);
-  //CalibrateDetectorLevel(&forward_power_detector_A);
-  //ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_A);
   
   CalibrateADCReading(&forward_power_detector_B, AverageADC16(forward_detector_b_array));
   UpdateDetectorPowerReadings(&forward_power_detector_B);
-  //CalibrateDetectorLevel(&forward_power_detector_B);
-  //ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
+
   
   power_long = forward_power_detector_A.power_reading_centi_watts;
   power_long += forward_power_detector_B.power_reading_centi_watts;
@@ -1149,7 +1065,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   rf_amplifier_dac_output = 0xFFFF - rf_amplifier_dac_output;  // Invert the slope of the output
 
 #ifdef _OPEN_LOOP_MODE
-  rf_amplifier_dac_output = program_power_level.adc_reading_calibrated;
+  rf_amplifier_dac_output = 0xFFFF - serial_link_power_target;
 #endif
 
   if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {

@@ -72,13 +72,13 @@
 // ----------------- DETECTOR CONFIGURATION NEEDS TO GO INTO EEPROM ---------------------//
 #define DETECTOR_A1A3_SCALE_FACTOR_313K                         41796  // This is millidB/Volt*1024 (the 1024 provides good 16 bit resolution and makes the math easy)
 #define DETECTOR_A1A3_INTERCEPT_313K                            -653   // This is millidB
-#define DETECTOR_A1A3_SCALE_FACTOR_TEMP_CO                      -255   // this is (milldB/Volt/DegC)*10.24 (the 10.24 provides good 16 bit resolution and makes the math easy)
-#define DETECTOR_A1A3_INTERCEPT_TEMP_CO                         -263   // this is (millidB/DegC)*10.24  
+#define DETECTOR_A1A3_SCALE_FACTOR_TEMP_CO                      0//-255   // this is (milldB/Volt/DegC)*10.24 (the 10.24 provides good 16 bit resolution and makes the math easy)
+#define DETECTOR_A1A3_INTERCEPT_TEMP_CO                         0//-263   // this is (millidB/DegC)*10.24  
 
 #define DETECTOR_A1A4_SCALE_FACTOR_313K                         41457
 #define DETECTOR_A1A4_INTERCEPT_313K                            -777
-#define DETECTOR_A1A4_SCALE_FACTOR_TEMP_CO                      -312
-#define DETECTOR_A1A4_INTERCEPT_TEMP_CO                         -254
+#define DETECTOR_A1A4_SCALE_FACTOR_TEMP_CO                      0//-312
+#define DETECTOR_A1A4_INTERCEPT_TEMP_CO                         0//-254
 
 #define DETECTOR_A1A5_SCALE_FACTOR_313K                         41457
 #define DETECTOR_A1A5_INTERCEPT_313K                            -170
@@ -91,16 +91,16 @@
 #define DETECTOR_A1A6_INTERCEPT_TEMP_CO                         -68
 
 
-#define FORWARD_1_COUPLER                                       39500
+#define FORWARD_1_COUPLER                                       36500
 #define FORWARD_1_PAD                                           19800
 
-#define FORWARD_2_COUPLER                                       40900
+#define FORWARD_2_COUPLER                                       37900
 #define FORWARD_2_PAD                                           19900
 
-#define REVERSE_1_COUPLER                                       40000
+#define REVERSE_1_COUPLER                                       37000
 #define REVERSE_1_PAD                                           20000
 
-#define REVERSE_2_COUPLER                                       40000
+#define REVERSE_2_COUPLER                                       37000
 #define REVERSE_2_PAD                                           20000
 
 
