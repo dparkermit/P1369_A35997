@@ -519,7 +519,7 @@ void ConvertDetectorLevelToPowerCentiWatts(RF_DETECTOR* ptr_rf_det) {
 
   power >>= 1;
 
-  power = ETMScale16Bit(power, 55705, 0);  // Multiply by .85
+  //power = ETMScale16Bit(power, 55705, 0);  // Multiply by .85
 
   ptr_rf_det->power_reading_centi_watts = power;
 }

@@ -12,7 +12,7 @@
 //#define POWER_PID_D_COMPONENT                              .01
 
 #define POWER_PID_P_COMPONENT                              .01
-#define POWER_PID_I_COMPONENT                              .1
+#define POWER_PID_I_COMPONENT                              .05
 #define POWER_PID_D_COMPONENT                              .00
 
 
