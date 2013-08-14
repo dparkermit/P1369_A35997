@@ -381,9 +381,9 @@ void DoA35997StartUp(void) {
   pid_forward_power.controlHistory = &pid_forward_power_controlHistory[0];     /*Set up pointer to controller history samples */
 
   PIDInit(&pid_forward_power);                                                    /*Clear the controler history and the controller output */
-  pid_forward_power_kCoeffs[0] = Q15(POWER_PID_P_COMPONENT);
-  pid_forward_power_kCoeffs[1] = Q15(POWER_PID_I_COMPONENT);
-  pid_forward_power_kCoeffs[2] = Q15(POWER_PID_D_COMPONENT);
+  pid_forward_power_kCoeffs[0] = Q15(0);
+  pid_forward_power_kCoeffs[1] = Q15(0);
+  pid_forward_power_kCoeffs[2] = Q15(0);
   PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);             /*Derive the a,b, & c coefficients from the Kp, Ki & Kd */
 
   // --------------- Initialize U6 - LTC2656 ------------------------- //
@@ -869,6 +869,14 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   unsigned int power_level_average;
   unsigned long power_long;
   unsigned int power_target_centi_watts;
+
+  int pid_p;
+  int pid_i;
+  int pid_d;
+  int delta;
+    
+
+
   /*
     The pid functions provided by dsp.h use Q15 fractional data.
     This represents fractional inputs/outputs from -1 to 1.
@@ -971,6 +979,60 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     // The RF output should be enabled
     PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
     pid_forward_power.controlReference = power_target_centi_watts >> 1;
+
+    // update the pid control parameters based on the program power level
+
+    if (power_target_centi_watts < 1000) {
+      // 10 watts
+      pid_p = PID_P_10_WATT;
+      pid_i = PID_I_10_WATT;
+      pid_d = PID_D_10_WATT;
+    } else if (power_target_centi_watts < 5000) {
+      // 10 -> 50 Watts
+      delta = power_target_centi_watts - 1000;
+      delta >>= 7;
+      pid_p = PID_P_10_WATT + delta*PID_P_10_50_SLOPE;
+      pid_i = PID_I_10_WATT + delta*PID_I_10_50_SLOPE;
+      pid_d = PID_D_10_WATT + delta*PID_D_10_50_SLOPE;
+    } else if (power_target_centi_watts < 10000) {
+      // 50 -> 100 Watts
+      delta = power_target_centi_watts - 5000;
+      delta >>= 7;
+      pid_p = PID_P_50_WATT + delta*PID_P_50_100_SLOPE;
+      pid_i = PID_I_50_WATT + delta*PID_I_50_100_SLOPE;
+      pid_d = PID_D_50_WATT + delta*PID_D_50_100_SLOPE;
+    } else if (power_target_centi_watts < 25000) {
+      // 100 -> 250 Watts
+      delta = power_target_centi_watts - 10000;
+      delta >>= 7;
+      pid_p = PID_P_100_WATT + delta*PID_P_100_250_SLOPE;
+      pid_i = PID_I_100_WATT + delta*PID_I_100_250_SLOPE;
+      pid_d = PID_D_100_WATT + delta*PID_D_100_250_SLOPE;
+    } else {
+      // 250+ Watts
+      delta = power_target_centi_watts - 25000;
+      delta >>= 7;
+      pid_p = PID_P_250_WATT + delta*PID_P_250_500_SLOPE;
+      pid_i = PID_I_250_WATT + delta*PID_I_250_500_SLOPE;
+      pid_d = PID_D_250_WATT + delta*PID_D_250_500_SLOPE;
+    }
+    
+    gui_debug_value_1 = pid_p;
+    gui_debug_value_2 = pid_i;
+    gui_debug_value_3 = pid_d;
+    gui_debug_value_4 = delta;
+    
+    /*
+    pid_forward_power_kCoeffs[0] = pid_p;
+    pid_forward_power_kCoeffs[1] = pid_i;
+    pid_forward_power_kCoeffs[2] = pid_d;
+   
+    __asm__ volatile("disi #0x3FFF"); // disable interrupts
+    PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);             // Derive the a,b, & c coefficients from the Kp, Ki & Kd
+    __asm__ volatile("disi #0x0000"); // enable interrupts    
+   
+    */
+ 
     PID(&pid_forward_power);
   } else {
     // The RF Output should be disabled

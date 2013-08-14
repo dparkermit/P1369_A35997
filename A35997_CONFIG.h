@@ -7,13 +7,49 @@
 //#define _OPEN_LOOP_MODE                                                  // Comment this line out to disable open loop mode
 
 
-//#define POWER_PID_P_COMPONENT                              .2
-//#define POWER_PID_I_COMPONENT                              .5
-//#define POWER_PID_D_COMPONENT                              .01
+#define PID_P_10_WATT                                      Q15(.2)
+#define PID_I_10_WATT                                      Q15(.2)
+#define PID_D_10_WATT                                      Q15(0)
 
-#define POWER_PID_P_COMPONENT                              .01
-#define POWER_PID_I_COMPONENT                              .05
-#define POWER_PID_D_COMPONENT                              .00
+#define PID_P_50_WATT                                      Q15(.1)
+#define PID_I_50_WATT                                      Q15(.25)
+#define PID_D_50_WATT                                      Q15(.1)
+
+#define PID_P_100_WATT                                     Q15(.1)
+#define PID_I_100_WATT                                     Q15(.25)
+#define PID_D_100_WATT                                     Q15(.1)
+
+#define PID_P_250_WATT                                     Q15(.1)
+#define PID_I_250_WATT                                     Q15(.25)
+#define PID_D_250_WATT                                     Q15(.1)
+
+#define PID_P_500_WATT                                     Q15(.1)
+#define PID_I_500_WATT                                     Q15(.25)
+#define PID_D_500_WATT                                     Q15(.1)
+
+
+#define PID_P_10_50_SLOPE                                  ((PID_P_50_WATT - PID_P_10_WATT)*(.78125)/40)
+#define PID_I_10_50_SLOPE                                  ((PID_I_50_WATT - PID_I_10_WATT)*(.78125)/40)
+#define PID_D_10_50_SLOPE                                  ((PID_D_50_WATT - PID_D_10_WATT)*(.78125)/40)
+
+
+#define PID_P_50_100_SLOPE                                 ((PID_P_100_WATT - PID_P_50_WATT)*(.78125)/50)
+#define PID_I_50_100_SLOPE                                 ((PID_I_100_WATT - PID_I_50_WATT)*(.78125)/50)
+#define PID_D_50_100_SLOPE                                 ((PID_D_100_WATT - PID_D_50_WATT)*(.78125)/50)
+
+
+#define PID_P_100_250_SLOPE                                ((PID_P_250_WATT - PID_P_100_WATT)*(.78125)/150)
+#define PID_I_100_250_SLOPE                                ((PID_I_250_WATT - PID_I_100_WATT)*(.78125)/150)
+#define PID_D_100_250_SLOPE                                ((PID_D_250_WATT - PID_D_100_WATT)*(.78125)/150)
+
+
+#define PID_P_250_500_SLOPE                                ((PID_P_500_WATT - PID_P_250_WATT)*(.78125)/250)
+#define PID_I_250_500_SLOPE                                ((PID_I_500_WATT - PID_I_250_WATT)*(.78125)/250)
+#define PID_D_250_500_SLOPE                                ((PID_D_500_WATT - PID_D_250_WATT)*(.78125)/250)
+
+
+
+
 
 
 #define MINIMUM_POWER_TARGET                               100           // 1 Watt - Below this level the amplifier will be disabled
