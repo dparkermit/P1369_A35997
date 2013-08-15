@@ -94,6 +94,7 @@ void ClearOutputsLTC2656(LTC2656* ptr_LTC2656);
 */
 
 
+
 unsigned char WriteLTC2656(LTC2656* ptr_LTC2656, unsigned int command_word, unsigned int data_word);
 
 /*  
@@ -113,6 +114,8 @@ unsigned char WriteLTC2656(LTC2656* ptr_LTC2656, unsigned int command_word, unsi
    If there is an error with the data transmission (error on SPI bus, or the data check failed), then the function will return the error code
    If there are any errors bad data may have been written to the DAC so the calling code should attempt to resend the data
 */
+
+unsigned char WriteLTC2656TwoChannels(LTC2656* ptr_LTC2656, unsigned int command_word_one, unsigned int data_word_one, unsigned command_word_two, unsigned int data_word_two);
 
 
 unsigned char WriteLTC2656AllDacChannels(LTC2656* ptr_LTC2656, unsigned int *dac_array);

@@ -311,6 +311,9 @@ extern unsigned int control_state;
 extern volatile unsigned int total_forward_power_centi_watts;
 extern volatile unsigned int total_reverse_power_centi_watts;
 extern volatile unsigned int rf_amplifier_dac_output;
+extern volatile unsigned int last_valid_detector_A_adc_reading;
+extern volatile unsigned int last_valid_detector_B_adc_reading;
+
 extern unsigned int software_foldback_mode_enable;
 extern unsigned int LTC2656_write_error_count;
 extern unsigned int serial_link_power_target;

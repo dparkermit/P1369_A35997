@@ -7,6 +7,11 @@ int GetCombinerTemperatureDelta(unsigned int temperature);
 long ConverterADCReadingToMillidB(RF_DETECTOR* ptr_rf_det);
 
 
+volatile unsigned int detector_A_min_value;
+volatile unsigned int detector_B_min_value;
+volatile unsigned int detector_A_max_value;
+volatile unsigned int detector_B_max_value;
+
 //--------- Local Function Prototypes ---------//
 unsigned int ConvertAmplifierTemperatureADCtoDeciDegreesK(unsigned int adc_reading); 
 unsigned int ConvertDetectorTemperatureADCtoDeciDegreesK(unsigned int adc_reading);
@@ -59,7 +64,11 @@ volatile unsigned int total_reverse_power_centi_watts;
 volatile unsigned int rf_amplifier_dac_output;
 unsigned int software_foldback_mode_enable = 0;
 unsigned int LTC2656_write_error_count = 0;
-unsigned int serial_link_power_target = 0;
+unsigned int serial_link_power_target = 10000;
+volatile unsigned int last_valid_detector_A_adc_reading = 0xFFFF;
+volatile unsigned int last_valid_detector_B_adc_reading = 0xFFFF;
+
+
 
 //---------- Local  Variables ----------//
 unsigned int software_rf_disable = 1;
@@ -862,13 +871,19 @@ void _ISRNOPSV _ADCInterrupt(void) {
 }
 
 
-
 // PID Interrupt on TMR1 (100us) 
 //void _ISRNOPSV _T1Interrupt(void) {
 void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interrupt(void) {
   unsigned int power_level_average;
   unsigned long power_long;
   unsigned int power_target_centi_watts;
+  unsigned long power_average;
+
+  int pid_p;
+  int pid_i;
+  int pid_d;
+  int delta;
+
   /*
     The pid functions provided by dsp.h use Q15 fractional data.
     This represents fractional inputs/outputs from -1 to 1.
@@ -913,14 +928,117 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   _T1IF = 0;
 
 
+
+  // -- begin very ugly section -- // 
+
+  /*
+    For reasons beyond Dan's understanding AverageADC16 is returning bogus values at RF amplifier startup
+    I have no clue why this happens when the RF is ramping up and not at any other time.
+   */
+
+
+  /*
+  last_valid_detector_A_adc_reading = AverageADC16(forward_detector_a_array);
+  last_valid_detector_B_adc_reading = AverageADC16(forward_detector_b_array);
+
+  if (last_valid_detector_A_adc_reading < detector_A_min_value) {
+    last_valid_detector_A_adc_reading = detector_A_min_value;
+  }
+  if (last_valid_detector_B_adc_reading < detector_B_min_value) {
+    last_valid_detector_B_adc_reading = detector_B_min_value;
+  }
+
+
+  if (last_valid_detector_A_adc_reading > 40000) {
+    detector_A_min_value = 37000;
+    detector_A_max_value = 0xFFFF;
+  } else {
+    detector_A_max_value = last_valid_detector_A_adc_reading + 2000;
+    if (last_valid_detector_A_adc_reading < 12000) {
+      detector_A_min_value = 10000;
+    } else {
+      detector_A_min_value = last_valid_detector_A_adc_reading - 2000;
+    }
+  }
+
+  if (last_valid_detector_B_adc_reading > 40000) {
+    detector_B_min_value = 37000;
+    detector_B_max_value = 0xFFFF;
+  } else {
+    detector_B_max_value = last_valid_detector_B_adc_reading + 2000;
+    if (last_valid_detector_B_adc_reading < 12000) {
+      detector_B_min_value = 10000;
+    } else {
+      detector_B_min_value = last_valid_detector_B_adc_reading - 2000;
+    }
+  }
+  */
+
+  power_average = 0;
+  power_average += forward_detector_a_array[0];
+
+  power_average += forward_detector_a_array[1];
+  power_average += forward_detector_a_array[2];
+  power_average += forward_detector_a_array[3];
+  power_average += forward_detector_a_array[4];
+  power_average += forward_detector_a_array[5];
+  power_average += forward_detector_a_array[6];
+  power_average += forward_detector_a_array[7];
+  power_average += forward_detector_a_array[8];
+  power_average += forward_detector_a_array[9];
+  power_average += forward_detector_a_array[10];
+  power_average += forward_detector_a_array[11];
+  power_average += forward_detector_a_array[12];
+  power_average += forward_detector_a_array[13];
+  power_average += forward_detector_a_array[14];
+  power_average += forward_detector_a_array[15];
+  power_average >>= 4;
+
+  last_valid_detector_A_adc_reading = power_average;
+
+  power_average = 0;
+  power_average += forward_detector_b_array[0];
+  power_average += forward_detector_b_array[1];
+  power_average += forward_detector_b_array[2];
+  power_average += forward_detector_b_array[3];
+  power_average += forward_detector_b_array[4];
+  power_average += forward_detector_b_array[5];
+  power_average += forward_detector_b_array[6];
+  power_average += forward_detector_b_array[7];
+  power_average += forward_detector_b_array[8];
+  power_average += forward_detector_b_array[9];
+  power_average += forward_detector_b_array[10];
+  power_average += forward_detector_b_array[11];
+  power_average += forward_detector_b_array[12];
+  power_average += forward_detector_b_array[13];
+  power_average += forward_detector_b_array[14];
+  power_average += forward_detector_b_array[15];
+  power_average >>= 4;
+
+  last_valid_detector_B_adc_reading = power_average;
+
+
+  gui_debug_value_1 = last_valid_detector_A_adc_reading;
+  gui_debug_value_2 = last_valid_detector_B_adc_reading;
+
+  // -- end very ugly section -- // 
+
+
+
   // ---------------- Calculate the Forward Power --------------- //
-  CalibrateADCReading(&forward_power_detector_A, (AverageADC16(forward_detector_a_array)));
+  CalibrateADCReading(&forward_power_detector_A, last_valid_detector_A_adc_reading);
   CalibrateDetectorLevel(&forward_power_detector_A);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_A);
   
-  CalibrateADCReading(&forward_power_detector_B, AverageADC16(forward_detector_b_array));
+  
+  CalibrateADCReading(&forward_power_detector_B, last_valid_detector_B_adc_reading);
   CalibrateDetectorLevel(&forward_power_detector_B);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
+
+  //  if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_A, last_valid_detector_B_adc_reading)) {
+  //  LTC2656_write_error_count++;
+  //}
+
   
   /*
     Removed the next two lines for testing single detector;
@@ -930,7 +1048,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   and replaced with the following 2 lines
   */
   power_long = forward_power_detector_B.power_reading_centi_watts;
-  power_long <<= 1;
+  power_long += forward_power_detector_A.power_reading_centi_watts;
 
   if (power_long >= 0xFFFF) {
     total_forward_power_centi_watts = 0xFFFF;
@@ -966,6 +1084,84 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
       power_target_centi_watts = FOLDBACK_POWER_PROGRAM;
     }
   }
+
+
+#ifdef _POWER_BASED_PID_MODE
+  
+  if (power_target_centi_watts < 1000) {
+    // 10 watts
+    pid_p = PID_P_10_WATT;
+    pid_i = PID_I_10_WATT;
+    pid_d = PID_D_10_WATT;
+  } else if (power_target_centi_watts < 5000) {
+    // 10 -> 50 Watts
+    delta = power_target_centi_watts - 1000;
+    delta >>= 7;
+    pid_p = PID_P_10_50_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_10_WATT;
+    
+    pid_i = PID_I_10_50_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_10_WATT;
+    
+    pid_d = PID_D_10_50_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_10_WATT;
+  } else if (power_target_centi_watts < 10000) {
+    // 50 -> 100 Watts
+    delta = power_target_centi_watts - 5000;
+    delta >>= 7;
+    pid_p = PID_P_50_100_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_50_WATT;
+    
+    pid_i = PID_I_50_100_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_50_WATT;
+    
+    pid_d = PID_D_50_100_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_50_WATT;
+  } else if (power_target_centi_watts < 25000) {
+    // 100 -> 250 Watts
+    delta = power_target_centi_watts - 10000;
+    delta >>= 7;
+    pid_p = PID_P_100_250_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_100_WATT;
+    
+    pid_i = PID_I_100_250_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_100_WATT;
+    
+      pid_d = PID_D_100_250_SLOPE;
+      pid_d *= delta;
+      pid_d += PID_D_100_WATT;
+  } else {
+    // 250+ Watts
+    delta = power_target_centi_watts - 10000;
+    delta >>= 7;
+    pid_p = PID_P_250_500_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_250_WATT;
+    
+    pid_i = PID_I_250_500_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_250_WATT;
+    
+    pid_d = PID_D_250_500_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_250_WATT;
+  }
+
+  pid_forward_power_kCoeffs[0] = pid_p;
+  pid_forward_power_kCoeffs[1] = pid_i;
+  pid_forward_power_kCoeffs[2] = pid_d;
+  
+  PIDCoeffCalc(pid_forward_power_kCoeffs, &pid_forward_power);             // Derive the a,b, & c coefficients from the Kp, Ki & Kd
+
+#endif
   
   if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
     // The RF output should be enabled
@@ -1000,10 +1196,21 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   rf_amplifier_dac_output = program_power_level.adc_reading_calibrated;
 #endif
 
+  /*
   if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
     LTC2656_write_error_count++;
   }
+  */
   
+  // DPARKER, doubled data readack, debug only
+
+  if (WriteLTC2656TwoChannels(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output, LTC2656_WRITE_AND_UPDATE_DAC_A, last_valid_detector_B_adc_reading)) {
+    LTC2656_write_error_count++;
+    gui_debug_value_4 = LTC2656_write_error_count;
+  }
+
+  
+
   PIN_TEST_POINT_25 = 0;
 }
 

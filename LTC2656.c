@@ -109,6 +109,104 @@ unsigned char WriteLTC2656(LTC2656* ptr_LTC2656, unsigned int command_word, unsi
 }
 
 
+unsigned char WriteLTC2656TwoChannels(LTC2656* ptr_LTC2656, unsigned int command_word_one, unsigned int data_word_one, unsigned command_word_two, unsigned int data_word_two) {
+  // See h File For Documentation
+  
+  unsigned char spi_error;
+  unsigned int command_word_readback;
+  unsigned int data_word_readback;
+  unsigned long temp;
+  
+  
+  spi_error = 0;
+  
+  ETMClearPin(ptr_LTC2656->pin_cable_select_not);
+  
+  temp = SendAndReceiveSPI(command_word_one, ptr_LTC2656->spi_port);
+  if (temp == 0x11110000) {
+    spi_error = 0b00000001;
+  } 
+
+  if (spi_error == 0) { 
+    temp = SendAndReceiveSPI(data_word_one, ptr_LTC2656->spi_port);
+    if (temp == 0x11110000) {
+      spi_error |= 0b00000010;
+    } 
+  }
+ 
+
+  ETMSetPin(ptr_LTC2656->pin_cable_select_not);
+  __asm__ ("nop");
+  __asm__ ("nop");
+  __asm__ ("nop");
+  __asm__ ("nop");
+  ETMClearPin(ptr_LTC2656->pin_cable_select_not);
+
+  
+  temp = SendAndReceiveSPI(command_word_two, ptr_LTC2656->spi_port);
+  command_word_readback = temp & 0xFFFF;
+  if (temp == 0x11110000) {
+    spi_error = 0b00000001;
+  } 
+
+  if (spi_error == 0) { 
+    temp = SendAndReceiveSPI(data_word_two, ptr_LTC2656->spi_port);
+    data_word_readback = temp & 0xFFFF;
+    if (temp == 0x11110000) {
+      spi_error |= 0b00000010;
+    } 
+  }
+
+
+  if (command_word_readback != command_word_one) {
+    spi_error |= 0b00010000;
+  }
+  if (data_word_readback != data_word_one) {
+    spi_error |= 0b00100000;
+  }
+
+
+  ETMSetPin(ptr_LTC2656->pin_cable_select_not);
+  __asm__ ("nop");
+  __asm__ ("nop");
+  __asm__ ("nop");
+  __asm__ ("nop");
+  ETMClearPin(ptr_LTC2656->pin_cable_select_not);
+
+
+  if (spi_error == 0) { 
+    temp = SendAndReceiveSPI(LTC2656_CMD_NO_OPERATION, ptr_LTC2656->spi_port);
+    command_word_readback = temp & 0xFFFF;
+    if (temp == 0x11110000) {
+      spi_error |= 0b00000100;
+    } 
+  }
+
+  if (spi_error == 0) { 
+    temp = SendAndReceiveSPI(0, ptr_LTC2656->spi_port);
+    data_word_readback = temp & 0xFFFF;
+    if (temp == 0x11110000) {
+      spi_error |= 0b00001000;
+    } 
+  }
+
+  ETMSetPin(ptr_LTC2656->pin_cable_select_not);
+
+  if (command_word_readback != command_word_two) {
+    spi_error |= 0b00010000;
+  }
+  if (data_word_readback != data_word_two) {
+    spi_error |= 0b00100000;
+  }
+
+  if (spi_error != 0) {
+    LTC2656_single_channel_error_count++;
+  }
+  return spi_error;
+
+}
+
+
 unsigned char WriteLTC2656AllDacChannels(LTC2656* ptr_LTC2656, unsigned int *dac_array) {
   // See h File For Documentation
   
