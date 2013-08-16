@@ -170,7 +170,7 @@ void ExecuteCommand(void) {
       break;
       
     case CMD_RESET:
-#ifdef _ENABLE_GUI_RESET
+#ifdef _DEBUG_MODE
       ResetAllFaults();
 #endif
       break;

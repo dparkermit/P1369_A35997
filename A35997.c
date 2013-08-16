@@ -32,7 +32,6 @@ const unsigned int detector_voltage_to_power_look_up_table[4096] = {DETECTOR_LOO
 
 // Debugging Information
 // DPARKER - WHERE ARE THESE USED????
-unsigned int spi2_bus_error_count;
 unsigned int gui_debug_value_1;
 unsigned int gui_debug_value_2;
 unsigned int gui_debug_value_3;
@@ -64,7 +63,7 @@ volatile unsigned int total_reverse_power_centi_watts;
 volatile unsigned int rf_amplifier_dac_output;
 unsigned int software_foldback_mode_enable = 0;
 unsigned int LTC2656_write_error_count = 0;
-unsigned int serial_link_power_target = 10000;
+unsigned int serial_link_power_target = 0;
 volatile unsigned int last_valid_detector_A_adc_reading = 0xFFFF;
 volatile unsigned int last_valid_detector_B_adc_reading = 0xFFFF;
 
@@ -784,9 +783,9 @@ void FilterADCs(void) {
   
   averaged_adc_reading = AverageADC128(rev_rf_det_b_temperature_array);
   temperature_reading = ConvertDetectorTemperatureADCtoDeciDegreesK(averaged_adc_reading);
-  //reverse_power_detector_B.detector_temperature = RCFilter64Tau(reverse_power_detector_B.detector_temperature, temperature_reading);
-  reverse_power_detector_B.detector_temperature = RCFilterNTau(reverse_power_detector_B.detector_temperature, temperature_reading,RC_FILTER_64_TAU);
-  
+  //reverse_power_detector_B.detector_temperature = RCFilterNTau(reverse_power_detector_B.detector_temperature, temperature_reading,RC_FILTER_64_TAU);
+  reverse_power_detector_B.detector_temperature = reverse_power_detector_A.detector_temperature;
+
   averaged_adc_reading = AverageADC128(reverse_detector_a_array);
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
   //reverse_power_detector_A.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading);
@@ -795,8 +794,8 @@ void FilterADCs(void) {
   
   averaged_adc_reading = AverageADC128(reverse_detector_b_array);
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
-  //reverse_power_detector_B.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading);
   reverse_power_detector_B.detector_level_calibrated = RCFilterNTau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
+  reverse_power_detector_B.detector_level_calibrated = reverse_power_detector_A.detector_level_calibrated;
   ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_B);
 
   power_long = reverse_power_detector_A.power_reading_centi_watts;
@@ -814,48 +813,8 @@ void FilterADCs(void) {
 
 // SPI2 Interrupt - External ADC
 // SPI2 Interrupt is moved to assembly in A35997_assemblt_functions.s
-
 /*
-#define SPI2_STATE_READ_B_AND_START_CONVERSION 0
-#define SPI2_STATE_START_A_TRANSFER 1
-#define SPI2_STATE_READ_A_AND_START_B_TRANSFER 2
-void _ISRFASTNOPSV _SPI2Interrupt(void) {
-  // With 29.5 MHz Clock this samples each signal at about 100 KHz
-  unsigned int trash;
-  PIN_TEST_POINT_27 = 1;  // Time this interrupt
-  _SPI2IF = 0;
-  switch(spi2_state) {
-  
-  case SPI2_STATE_READ_B_AND_START_CONVERSION:
-    // (*) SPI Interrupt Saves SPIBUF to Data 2, CS2->High, Convert->High. Convert->Low, Exits = 16 bit delay + execution time  
-    PIN_AD7686_2_CS = !OLL_AD7686_SELECT_DEVICE; 
-    PIN_AD7686_CONVERT = !OLL_AD7686_START_CONVERSION;
-    forward_detector_b_array[ad7686_result_index] = SPI2BUF;
-    PIN_AD7686_CONVERT = OLL_AD7686_START_CONVERSION;
-    SPI2BUF = 0xAAAA;
-    spi2_state = SPI2_STATE_START_A_TRANSFER;
-    ad7686_result_index++;
-    ad7686_result_index &= 0b00001111; // 16 element circular buffer
-    break;
-
-  case SPI2_STATE_START_A_TRANSFER:
-    // (*) SPI Interrupt CS1->Low and starts 16 bit transfer, exits = 16 bit delay + execution time
-    trash = SPI2BUF;
-    PIN_AD7686_1_CS = OLL_AD7686_SELECT_DEVICE;
-    SPI2BUF = 0xAAAA;
-    spi2_state = SPI2_STATE_READ_A_AND_START_B_TRANSFER;
-    break;
-    
-  case SPI2_STATE_READ_A_AND_START_B_TRANSFER:
-    PIN_AD7686_1_CS = !OLL_AD7686_SELECT_DEVICE;
-    forward_detector_a_array[ad7686_result_index] = SPI2BUF;
-    PIN_AD7686_2_CS = OLL_AD7686_SELECT_DEVICE;
-    SPI2BUF = 0xAAAA;
-    spi2_state = SPI2_STATE_READ_B_AND_START_CONVERSION;
-    break;
-  }
-  PIN_TEST_POINT_27 = 0;
-}
+  void _ISRFASTNOPSV _SPI2Interrupt(void) {
 */
 
 
@@ -864,10 +823,17 @@ void _ISRNOPSV _ADCInterrupt(void) {
 //void __attribute__((interrupt(__save__(CORCON,SR)),no_auto_psv)) _ADCInterrupt(void) {
   // At a sample rate of 180KHz, it takes 83uS to perform the 15 conversions.
   // The ADC conversion process is started by the 100uS interrupt and this data process will complete before the next T1 interrupt
+
+#ifdef _DEBUG_MODE
   PIN_TEST_POINT_26 = 1; // TIME this interrupt
+#endif
+
   _ASAM = 0;
   _ADIF = 0;
+
+#ifdef _DEBUG_MODE
   PIN_TEST_POINT_26 = 0;
+#endif
 }
 
 
@@ -899,9 +865,8 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
 	NOTE: You must perform the math like this we because the PID will set the output to Zero at start.
 	If you shift the entire 16 bits to unsinged interger, 0 will become 0x7FFF and your control_output will start at 50%, not zero!!!!
   */
-  // Time this interrupt
   PIN_TEST_POINT_25 = 1; // Time this interrupt
-  
+
   // Copy Data From ADC Buffer to RAM
   reverse_detector_b_array[adc_result_index] = ADCBUF0;  
   power_level_average = ADCBUF1;
@@ -1040,13 +1005,6 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   //}
 
   
-  /*
-    Removed the next two lines for testing single detector;
-  power_long = forward_power_detector_A.power_reading_centi_watts;
-  power_long += forward_power_detector_B.power_reading_centi_watts;
-
-  and replaced with the following 2 lines
-  */
   power_long = forward_power_detector_B.power_reading_centi_watts;
   power_long += forward_power_detector_A.power_reading_centi_watts;
 
@@ -1066,7 +1024,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   CalibrateADCReading(&program_power_level, power_level_average);
   power_target_centi_watts = ConvertProgramLevelToPowerCentiWatts(program_power_level.adc_reading_calibrated);
   
-#ifdef _USE_GUI_TO_SET_POWER
+#ifdef _DEBUG_MODE
   power_target_centi_watts = serial_link_power_target;
 #endif
   
@@ -1140,7 +1098,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
       pid_d += PID_D_100_WATT;
   } else {
     // 250+ Watts
-    delta = power_target_centi_watts - 10000;
+    delta = power_target_centi_watts - 25000;
     delta >>= 7;
     pid_p = PID_P_250_500_SLOPE;
     pid_p *= delta;
@@ -1196,20 +1154,17 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   rf_amplifier_dac_output = program_power_level.adc_reading_calibrated;
 #endif
 
-  /*
-  if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
-    LTC2656_write_error_count++;
-  }
-  */
-  
-  // DPARKER, doubled data readack, debug only
 
+#ifdef _DEBUG_MODE
   if (WriteLTC2656TwoChannels(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output, LTC2656_WRITE_AND_UPDATE_DAC_A, last_valid_detector_B_adc_reading)) {
     LTC2656_write_error_count++;
     gui_debug_value_4 = LTC2656_write_error_count;
   }
-
-  
+#else
+  if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
+    LTC2656_write_error_count++;
+  }
+#endif
 
   PIN_TEST_POINT_25 = 0;
 }

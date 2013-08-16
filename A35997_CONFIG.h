@@ -2,62 +2,15 @@
 #define __A35997_CONFIG_H  
 
 
-#define _USE_GUI_TO_SET_POWER                                            // Comment this line out for the production system
-#define _ENABLE_GUI_RESET                                                // Comment this line out to disable the serial link fault reset
-#define _POWER_BASED_PID_MODE
-//#define _OPEN_LOOP_MODE                                                  // Comment this line out to disable open loop mode
+//#define _OPEN_LOOP_MODE                                       // When defined, unit operates in open loop mode
+
+#define _DEBUG_MODE                                           // This line enables debugging code 
+                                                              // Enables GUI setting the target power
+                                                              // Enables GUI reset command
+                                                              // Routes analog debug data to TP36
+                                                              // Enables other debug features 
 
 
-//#define POWER_PID_P_COMPONENT                              .2
-//#define POWER_PID_I_COMPONENT                              .5
-//#define POWER_PID_D_COMPONENT                              .01
-
-#define POWER_PID_P_COMPONENT                              .0
-#define POWER_PID_I_COMPONENT                              .1
-#define POWER_PID_D_COMPONENT                              .00
-
-
-
-
-#define PID_P_10_WATT                                      Q15(0)
-#define PID_I_10_WATT                                      Q15(.025)
-#define PID_D_10_WATT                                      Q15(.0)
-
-#define PID_P_50_WATT                                      Q15(.0)
-#define PID_I_50_WATT                                      Q15(.025)
-#define PID_D_50_WATT                                      Q15(.0)
-
-#define PID_P_100_WATT                                     Q15(.0)
-#define PID_I_100_WATT                                     Q15(.025)
-#define PID_D_100_WATT                                     Q15(.0)
-
-#define PID_P_250_WATT                                     Q15(.0)
-#define PID_I_250_WATT                                     Q15(.025)
-#define PID_D_250_WATT                                     Q15(.0)
-
-#define PID_P_500_WATT                                     Q15(.0)
-#define PID_I_500_WATT                                     Q15(.025)
-#define PID_D_500_WATT                                     Q15(.0)
-
-
-#define PID_P_10_50_SLOPE                                  ((PID_P_50_WATT - PID_P_10_WATT)*(1.28)/40)
-#define PID_I_10_50_SLOPE                                  ((PID_I_50_WATT - PID_I_10_WATT)*(1.28)/40)
-#define PID_D_10_50_SLOPE                                  ((PID_D_50_WATT - PID_D_10_WATT)*(1.28)/40)
-
-
-#define PID_P_50_100_SLOPE                                 ((PID_P_100_WATT - PID_P_50_WATT)*(1.28)/50)
-#define PID_I_50_100_SLOPE                                 ((PID_I_100_WATT - PID_I_50_WATT)*(1.28)/50)
-#define PID_D_50_100_SLOPE                                 ((PID_D_100_WATT - PID_D_50_WATT)*(1.28)/50)
-
-
-#define PID_P_100_250_SLOPE                                ((PID_P_250_WATT - PID_P_100_WATT)*(1.28)/150)
-#define PID_I_100_250_SLOPE                                ((PID_I_250_WATT - PID_I_100_WATT)*(1.28)/150)
-#define PID_D_100_250_SLOPE                                ((PID_D_250_WATT - PID_D_100_WATT)*(1.28)/150)
-
-
-#define PID_P_250_500_SLOPE                                ((PID_P_500_WATT - PID_P_250_WATT)*(1.28)/250)
-#define PID_I_250_500_SLOPE                                ((PID_I_500_WATT - PID_I_250_WATT)*(1.28)/250)
-#define PID_D_250_500_SLOPE                                ((PID_D_500_WATT - PID_D_250_WATT)*(1.28)/250)
 
 
 #define MINIMUM_POWER_TARGET                               100           // 1 Watt - Below this level the amplifier will be disabled
@@ -65,6 +18,42 @@
 #define FOLDBACK_POWER_PROGRAM                             25000         // 250 Watts
 
 #define FRONT_PANEL_LED_NUMBER_OF_FLASHES_AT_STARTUP       3
+
+
+// ------------  START PID CONFIGURATION --------------- //
+#define _POWER_BASED_PID_MODE                                 // Enables multiple PID values based on power level
+
+
+// This are the values if _POWER_BASED_PID_MODE is not defined
+#define POWER_PID_P_COMPONENT                              .0
+#define POWER_PID_I_COMPONENT                              .1
+#define POWER_PID_D_COMPONENT                              .00
+
+
+
+// This are the values if _POWER_BASED_PID_MODE is defined
+#define PID_P_10_WATT                                      Q15(.0)
+#define PID_I_10_WATT                                      Q15(.999)
+#define PID_D_10_WATT                                      Q15(.0)
+
+#define PID_P_50_WATT                                      Q15(.0)
+#define PID_I_50_WATT                                      Q15(.4)
+#define PID_D_50_WATT                                      Q15(.2)
+
+#define PID_P_100_WATT                                     Q15(.0)
+#define PID_I_100_WATT                                     Q15(.2)
+#define PID_D_100_WATT                                     Q15(.15)
+
+#define PID_P_250_WATT                                     Q15(.0)
+#define PID_I_250_WATT                                     Q15(.09)
+#define PID_D_250_WATT                                     Q15(.02)
+
+#define PID_P_500_WATT                                     Q15(.0)
+#define PID_I_500_WATT                                     Q15(.06)
+#define PID_D_500_WATT                                     Q15(.0)
+
+
+// ------------  END PID CONFIGURATION --------------- //
 
 
 
@@ -109,28 +98,8 @@
 
 #define MAX_STEADY_STATE_REFLECTED_POWER                   25000   // 250 Watts
 #define MAX_FOLDBACK_REFLECTED_POWER                       12500   // 125 Watts
-#define MAX_OVER_REFLECTED_TIME                            1500    // 15 Seconds
-#define MAX_OVER_REFLECTED_TIME_HYSTERESIS                 200     // 2 Seconds
-
-
-
-
-
-
-// ----------------- DETECTOR CONFIGURATION NEEDS TO GO INTO EEPROM ---------------------//
-#define DETECTOR_A1A3_SCALE_FACTOR                         41796
-#define DETECTOR_A1A3_INTERCEPT                            -653
-
-#define DETECTOR_A1A4_SCALE_FACTOR                         41457
-#define DETECTOR_A1A4_INTERCEPT                            -777
-
-#define DETECTOR_A1A5_SCALE_FACTOR                         41457
-#define DETECTOR_A1A5_INTERCEPT                            -170
-
-#define DETECTOR_A1A6_SCALE_FACTOR                         42489
-#define DETECTOR_A1A6_INTERCEPT                            -66
-
-
+#define MAX_OVER_REFLECTED_TIME                            6000    // 15 Seconds (10ms Units)
+#define MAX_OVER_REFLECTED_TIME_HYSTERESIS                 200     // 2 Seconds (10ms Units)
 
 
 
