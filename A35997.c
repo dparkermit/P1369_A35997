@@ -1155,16 +1155,18 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
 #endif
 
 
+  /*
 #ifdef _DEBUG_MODE
   if (WriteLTC2656TwoChannels(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output, LTC2656_WRITE_AND_UPDATE_DAC_A, last_valid_detector_B_adc_reading)) {
     LTC2656_write_error_count++;
     gui_debug_value_4 = LTC2656_write_error_count;
   }
 #else
+  */
   if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
     LTC2656_write_error_count++;
   }
-#endif
+  // #endif
 
   PIN_TEST_POINT_25 = 0;
 }

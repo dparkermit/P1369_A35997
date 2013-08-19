@@ -4,7 +4,7 @@
 
 //#define _OPEN_LOOP_MODE                                       // When defined, unit operates in open loop mode
 
-#define _DEBUG_MODE                                           // This line enables debugging code 
+//#define _DEBUG_MODE                                           // This line enables debugging code 
                                                               // Enables GUI setting the target power
                                                               // Enables GUI reset command
                                                               // Routes analog debug data to TP36
