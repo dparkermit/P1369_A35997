@@ -2,9 +2,11 @@
 #define __A35997_CONFIG_H  
 
 
+#define _DO_THERMAL_COMP
+
 //#define _OPEN_LOOP_MODE                                       // When defined, unit operates in open loop mode
 
-//#define _DEBUG_MODE                                           // This line enables debugging code 
+#define _DEBUG_MODE                                           // This line enables debugging code 
                                                               // Enables GUI setting the target power
                                                               // Enables GUI reset command
                                                               // Routes analog debug data to TP36
@@ -50,7 +52,7 @@
 
 #define PID_P_500_WATT                                     Q15(.0)
 #define PID_I_500_WATT                                     Q15(.06)
-#define PID_D_500_WATT                                     Q15(.0)
+#define PID_D_500_WATT                                     Q15(.00)
 
 
 // ------------  END PID CONFIGURATION --------------- //
@@ -62,8 +64,8 @@
 
 // -------------------- Configuration for Fault Levels ------------------------ //
 
-#define FAULT_OVER_POWER_MULT                              36045  // 1.100006 // The target power is multiplied by this to generate the over power level
-#define FAULT_MINIMUM_OVER_POWER                           500    // 5.00 Watts // This is absolute minimum for the over power setting relative to the power setting
+#define FAULT_OVER_POWER_MULT                              32768  // 1.0000 // The target power is multiplied by this to generate the over power level
+#define FAULT_MINIMUM_OVER_POWER                           5000    // 50.00 Watts // This is absolute minimum for the over power setting relative to the power setting
 #define FAULT_TIME_OVER_POWER                              10     // Time that the unit must be overpower (in 10ms units) to generate an over power fault
 
 #define FAULT_UNDER_POWER_MULT                             58982  // .899994
@@ -79,9 +81,9 @@
 
 
 #define FORWARD_DETECTOR_MAX_POWER                         32500          // 325 Watts
-#define FORWARD_OVER_POWER_TRIP_TIME_10MS_UNITS            10             // 100ms
+#define FORWARD_OVER_POWER_TRIP_TIME_10MS_UNITS            50             // 500ms
 #define REVERSE_DETECTOR_MAX_POWER                         32500          // 325 Watts
-#define REVERSE_OVER_POWER_TRIP_TIME_10MS_UNITS            100            // 1000ms
+#define REVERSE_OVER_POWER_TRIP_TIME_10MS_UNITS            50             //  500ms
 
 #define FORWARD_DETECTOR_MISMATCH_SCALE                    16384          // .25 Multiplier
 #define FORWARD_DETECTOR_MISMATCH_MINIMUM_FOR_FAULT        1000           // 10 Watts

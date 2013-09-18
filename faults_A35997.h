@@ -36,14 +36,16 @@ extern unsigned int fault_latched_register;              // Register that latche
    (2) The two detectors readings are not within the greater of 30% or 10 watts of each other for X milliseconds
 */
 
+// "Temperature" Faults Flash red led
+#define FAULT_MASK_TEMPERATURE_FAULT              (FAULT_OUTPUT_POWER_LOW | FAULT_OUTPUT_OVER_POWER)
 
-#define FAULT_MASK_TEMPERATURE_FAULT              0x0000
-
-#define FAULT_MASK_GENERAL_FAULT                  (FAULT_POWER_SUPPLY_1_FAILURE | FAULT_POWER_SUPPLY_2_FAILURE | FAULT_OUTPUT_POWER_LOW | FAULT_OUTPUT_OVER_POWER)
+// "General" Faults have solid red led
+#define FAULT_MASK_GENERAL_FAULT                  (FAULT_POWER_SUPPLY_1_FAILURE | FAULT_POWER_SUPPLY_2_FAILURE)
 
 
 
 #define ACTIVE_FAULT_MASK      (FAULT_MASK_TEMPERATURE_FAULT | FAULT_MASK_GENERAL_FAULT)
+//#define ACTIVE_FAULT_MASK      0
 
 
 extern unsigned int over_refected_power_count;

@@ -2,6 +2,16 @@
 #include "faults_A35997.h"
 #include "A35997_DETECTOR_LOOK_UP_TABLE.h"
 
+#ifdef _DO_THERMAL_COMP
+#define TEMPERATURE_TIME_CONSTANT 62914
+//const unsigned int temperature_coeff_mult[64] = {32768,33423,34079,34734,34636,34505,34406,34308,34472,34636,34800,35095,34832,34570,34308,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013};
+
+const unsigned int temperature_coeff_mult[64] = {33686,33531,33377,33224,33071,33071,33071,33071,33071,32919,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768};
+unsigned int coupler_temperature_scale_unknown;
+unsigned int coupler_multiplier;
+
+#endif
+
 
 int GetCombinerTemperatureDelta(unsigned int temperature);
 long ConverterADCReadingToMillidB(RF_DETECTOR* ptr_rf_det);
@@ -600,6 +610,23 @@ void Do10msTicToc(void) {
     FilterADCs();           
     UpdateFaults();
     PIN_TEST_POINT_29 = 0;
+
+
+#ifdef _DO_THERMAL_COMP
+    
+    coupler_temperature_scale_unknown += (total_forward_power_centi_watts >> 6);
+    coupler_temperature_scale_unknown = ETMScale16Bit(coupler_temperature_scale_unknown, TEMPERATURE_TIME_CONSTANT, 0);
+    /*
+      500 Watts will stabilize at 19531 , 19
+      400 Watts will stabilize at 15624 , 15
+      300 Watts will stabilize at 11718 , 11
+      200 Watts will stabilize at 7812  , 7
+      100 Watts will stabilize at 3906  , 3
+    */
+    
+    coupler_multiplier = temperature_coeff_mult[(coupler_temperature_scale_unknown >> 10)];
+#endif
+
   }
   PIN_TEST_POINT_28 = 0;
 }
@@ -1000,9 +1027,11 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   CalibrateDetectorLevel(&forward_power_detector_B);
   ConvertDetectorLevelToPowerCentiWatts(&forward_power_detector_B);
 
-  //  if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_A, last_valid_detector_B_adc_reading)) {
-  //  LTC2656_write_error_count++;
-  //}
+
+#ifdef _DO_THERMAL_COMP
+  forward_power_detector_B.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_B.power_reading_centi_watts, coupler_multiplier, 1);
+  forward_power_detector_A.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_A.power_reading_centi_watts, coupler_multiplier, 1); 
+#endif
 
   
   power_long = forward_power_detector_B.power_reading_centi_watts;
@@ -1121,7 +1150,8 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
 
 #endif
   
-  if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
+  //  if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
+  if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0)) {
     // The RF output should be enabled
     PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
     pid_forward_power.controlReference = power_target_centi_watts >> 1;
@@ -1151,22 +1181,22 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   rf_amplifier_dac_output = 0xFFFF - rf_amplifier_dac_output;  // Invert the slope of the output
 
 #ifdef _OPEN_LOOP_MODE
-  rf_amplifier_dac_output = program_power_level.adc_reading_calibrated;
+  //rf_amplifier_dac_output = program_power_level.adc_reading_calibrated;
 #endif
 
 
-  /*
+/*
 #ifdef _DEBUG_MODE
-  if (WriteLTC2656TwoChannels(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output, LTC2656_WRITE_AND_UPDATE_DAC_A, last_valid_detector_B_adc_reading)) {
+  if (WriteLTC2656TwoChannels(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output, LTC2656_WRITE_AND_UPDATE_DAC_A, total_forward_power_centi_watts)) {
     LTC2656_write_error_count++;
     gui_debug_value_4 = LTC2656_write_error_count;
   }
 #else
-  */
+*/
   if (WriteLTC2656(&U6_LTC2656, LTC2656_WRITE_AND_UPDATE_DAC_B, rf_amplifier_dac_output)) {
     LTC2656_write_error_count++;
   }
-  // #endif
+//#endif
 
   PIN_TEST_POINT_25 = 0;
 }
