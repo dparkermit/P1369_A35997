@@ -2,6 +2,10 @@
 #include "faults_A35997.h"
 #include "A35997_DETECTOR_LOOK_UP_TABLE.h"
 
+#ifdef _DO_TIME_COMP
+unsigned int cycles_running;
+#endif
+
 #ifdef _DO_THERMAL_COMP
 #define TEMPERATURE_TIME_CONSTANT 62914
 //const unsigned int temperature_coeff_mult[64] = {32768,33423,34079,34734,34636,34505,34406,34308,34472,34636,34800,35095,34832,34570,34308,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013,34013};
@@ -1033,6 +1037,32 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   forward_power_detector_A.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_A.power_reading_centi_watts, coupler_multiplier, 1); 
 #endif
 
+
+
+
+#ifdef _DO_TIME_COMP
+#define STARTUP_FOLDBACK 35111
+#define STARTUP_FOLDBACK_POINT_2 34312
+#define STARTUP_FOLDBACK_POINT_1 33512
+  if (cycles_running <= 13) {
+    cycles_running++;
+    forward_power_detector_A.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_A.power_reading_centi_watts, STARTUP_FOLDBACK, 1);
+    forward_power_detector_B.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_B.power_reading_centi_watts, STARTUP_FOLDBACK, 1);
+  } else if (cycles_running == 14) {
+    forward_power_detector_A.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_A.power_reading_centi_watts, STARTUP_FOLDBACK_POINT_2, 1);
+    forward_power_detector_B.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_B.power_reading_centi_watts, STARTUP_FOLDBACK_POINT_2, 1);
+  } else if (cycles_running == 15) {
+    forward_power_detector_A.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_A.power_reading_centi_watts, STARTUP_FOLDBACK_POINT_1, 1);
+    forward_power_detector_B.power_reading_centi_watts = ETMScale16Bit(forward_power_detector_B.power_reading_centi_watts, STARTUP_FOLDBACK_POINT_1, 1);
+  }
+
+
+  if (PIN_RF_ENABLE == !ILL_PIN_RF_ENABLE_ENABLED) {
+    cycles_running = 0;
+  }
+#endif
+
+
   
   power_long = forward_power_detector_B.power_reading_centi_watts;
   power_long += forward_power_detector_A.power_reading_centi_watts;
@@ -1075,26 +1105,21 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
 
 #ifdef _POWER_BASED_PID_MODE
   
-  if (power_target_centi_watts < 1000) {
-    // 10 watts
-    pid_p = PID_P_10_WATT;
-    pid_i = PID_I_10_WATT;
-    pid_d = PID_D_10_WATT;
-  } else if (power_target_centi_watts < 5000) {
-    // 10 -> 50 Watts
-    delta = power_target_centi_watts - 1000;
+  if (power_target_centi_watts < 5000) {
+    // 0 -> 50 Watts
+    delta = power_target_centi_watts;
     delta >>= 7;
-    pid_p = PID_P_10_50_SLOPE;
+    pid_p = PID_P_0_50_SLOPE;
     pid_p *= delta;
-    pid_p += PID_P_10_WATT;
+    pid_p += PID_P_0_WATT;
     
-    pid_i = PID_I_10_50_SLOPE;
+    pid_i = PID_I_0_50_SLOPE;
     pid_i *= delta;
-    pid_i += PID_I_10_WATT;
+    pid_i += PID_I_0_WATT;
     
-    pid_d = PID_D_10_50_SLOPE;
+    pid_d = PID_D_0_50_SLOPE;
     pid_d *= delta;
-    pid_d += PID_D_10_WATT;
+    pid_d += PID_D_0_WATT;
   } else if (power_target_centi_watts < 10000) {
     // 50 -> 100 Watts
     delta = power_target_centi_watts - 5000;
@@ -1110,36 +1135,126 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_50_100_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_50_WATT;
-  } else if (power_target_centi_watts < 25000) {
-    // 100 -> 250 Watts
+  } else if (power_target_centi_watts < 15000) {
+    // 100 -> 150 Watts
     delta = power_target_centi_watts - 10000;
     delta >>= 7;
-    pid_p = PID_P_100_250_SLOPE;
+    pid_p = PID_P_100_150_SLOPE;
     pid_p *= delta;
     pid_p += PID_P_100_WATT;
     
-    pid_i = PID_I_100_250_SLOPE;
+    pid_i = PID_I_100_150_SLOPE;
     pid_i *= delta;
     pid_i += PID_I_100_WATT;
     
-      pid_d = PID_D_100_250_SLOPE;
-      pid_d *= delta;
-      pid_d += PID_D_100_WATT;
-  } else {
-    // 250+ Watts
+    pid_d = PID_D_100_150_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_100_WATT;
+  } else if (power_target_centi_watts < 20000) {
+    // 150 -> 200 Watts
+    delta = power_target_centi_watts - 15000;
+    delta >>= 7;
+    pid_p = PID_P_150_200_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_150_WATT;
+    
+    pid_i = PID_I_150_200_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_150_WATT;
+    
+    pid_d = PID_D_150_200_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_150_WATT;
+  } else if (power_target_centi_watts < 25000) {
+    // 200 -> 250 Watts
+    delta = power_target_centi_watts - 20000;
+    delta >>= 7;
+    pid_p = PID_P_200_250_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_200_WATT;
+    
+    pid_i = PID_I_200_250_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_200_WATT;
+    
+    pid_d = PID_D_200_250_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_200_WATT;
+  } else if (power_target_centi_watts < 30000) {
+    // 250 -> 300 Watts
     delta = power_target_centi_watts - 25000;
     delta >>= 7;
-    pid_p = PID_P_250_500_SLOPE;
+    pid_p = PID_P_250_300_SLOPE;
     pid_p *= delta;
     pid_p += PID_P_250_WATT;
     
-    pid_i = PID_I_250_500_SLOPE;
+    pid_i = PID_I_250_300_SLOPE;
     pid_i *= delta;
     pid_i += PID_I_250_WATT;
     
-    pid_d = PID_D_250_500_SLOPE;
+    pid_d = PID_D_250_300_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_250_WATT;
+  } else if (power_target_centi_watts < 35000) {
+    // 300 -> 350 Watts
+    delta = power_target_centi_watts - 30000;
+    delta >>= 7;
+    pid_p = PID_P_300_350_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_300_WATT;
+    
+    pid_i = PID_I_300_350_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_300_WATT;
+    
+    pid_d = PID_D_300_350_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_300_WATT;
+  } else if (power_target_centi_watts < 40000) {
+    // 350 -> 400 Watts
+    delta = power_target_centi_watts - 35000;
+    delta >>= 7;
+    pid_p = PID_P_350_400_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_350_WATT;
+    
+    pid_i = PID_I_350_400_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_350_WATT;
+    
+    pid_d = PID_D_350_400_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_350_WATT;
+  } else if (power_target_centi_watts < 45000) {
+    // 400 -> 450 Watts
+    delta = power_target_centi_watts - 40000;
+    delta >>= 7;
+    pid_p = PID_P_400_450_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_400_WATT;
+    
+    pid_i = PID_I_400_450_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_400_WATT;
+    
+    pid_d = PID_D_400_450_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_400_WATT;
+  } else {
+    // 450+ Watts
+    delta = power_target_centi_watts - 45000;
+    delta >>= 7;
+    pid_p = PID_P_450_500_SLOPE;
+    pid_p *= delta;
+    pid_p += PID_P_450_WATT;
+    
+    pid_i = PID_I_450_500_SLOPE;
+    pid_i *= delta;
+    pid_i += PID_I_450_WATT;
+    
+    pid_d = PID_D_450_500_SLOPE;
+    pid_d *= delta;
+    pid_d += PID_D_450_WATT;
   }
 
   pid_forward_power_kCoeffs[0] = pid_p;
