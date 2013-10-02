@@ -8,7 +8,7 @@
 
 //#define _OPEN_LOOP_MODE                                       // When defined, unit operates in open loop mode
 
-#define _DEBUG_MODE                                           // This line enables debugging code 
+//#define _DEBUG_MODE                                           // This line enables debugging code 
                                                               // Enables GUI setting the target power
                                                               // Enables GUI reset command
                                                               // Routes analog debug data to TP36
@@ -25,7 +25,7 @@
 
 
 // ------------  START PID CONFIGURATION --------------- //
-#define _POWER_BASED_PID_MODE                                 // Enables multiple PID values based on power level
+//#define _POWER_BASED_PID_MODE                                 // Enables multiple PID values based on power level
 
 
 // This are the values if _POWER_BASED_PID_MODE is not defined
