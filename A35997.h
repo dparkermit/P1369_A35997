@@ -257,30 +257,30 @@
 #define PID_I_150_200_SLOPE                                 ((PID_I_200_WATT - PID_I_150_WATT)*(1.28)/50)
 #define PID_D_150_200_SLOPE                                 ((PID_D_200_WATT - PID_D_150_WATT)*(1.28)/50)
 
-#define PID_P_200_250_SLOPE                                 ((PID_P_250_WATT - PID_P_200_WATT)*(1.28)/150)
-#define PID_I_200_250_SLOPE                                 ((PID_I_250_WATT - PID_I_200_WATT)*(1.28)/150)
-#define PID_D_200_250_SLOPE                                 ((PID_D_250_WATT - PID_D_200_WATT)*(1.28)/150)
+#define PID_P_200_250_SLOPE                                 ((PID_P_250_WATT - PID_P_200_WATT)*(1.28)/50)
+#define PID_I_200_250_SLOPE                                 ((PID_I_250_WATT - PID_I_200_WATT)*(1.28)/50)
+#define PID_D_200_250_SLOPE                                 ((PID_D_250_WATT - PID_D_200_WATT)*(1.28)/50)
 
 #define PID_P_250_300_SLOPE                                 ((PID_P_300_WATT - PID_P_250_WATT)*(1.28)/50)
 #define PID_I_250_300_SLOPE                                 ((PID_I_300_WATT - PID_I_250_WATT)*(1.28)/50)
 #define PID_D_250_300_SLOPE                                 ((PID_D_300_WATT - PID_D_250_WATT)*(1.28)/50)
 
-#define PID_P_300_350_SLOPE                                 ((PID_P_350_WATT - PID_P_300_WATT)*(1.28)/150)
-#define PID_I_300_350_SLOPE                                 ((PID_I_350_WATT - PID_I_300_WATT)*(1.28)/150)
-#define PID_D_300_350_SLOPE                                 ((PID_D_350_WATT - PID_D_300_WATT)*(1.28)/150)
+#define PID_P_300_350_SLOPE                                 ((PID_P_350_WATT - PID_P_300_WATT)*(1.28)/50)
+#define PID_I_300_350_SLOPE                                 ((PID_I_350_WATT - PID_I_300_WATT)*(1.28)/50)
+#define PID_D_300_350_SLOPE                                 ((PID_D_350_WATT - PID_D_300_WATT)*(1.28)/50)
 
 #define PID_P_350_400_SLOPE                                 ((PID_P_400_WATT - PID_P_350_WATT)*(1.28)/50)
 #define PID_I_350_400_SLOPE                                 ((PID_I_400_WATT - PID_I_350_WATT)*(1.28)/50)
 #define PID_D_350_400_SLOPE                                 ((PID_D_400_WATT - PID_D_350_WATT)*(1.28)/50)
 
-#define PID_P_400_450_SLOPE                                 ((PID_P_450_WATT - PID_P_400_WATT)*(1.28)/150)
-#define PID_I_400_450_SLOPE                                 ((PID_I_450_WATT - PID_I_400_WATT)*(1.28)/150)
-#define PID_D_400_450_SLOPE                                 ((PID_D_450_WATT - PID_D_400_WATT)*(1.28)/150)
+#define PID_P_400_450_SLOPE                                 ((PID_P_450_WATT - PID_P_400_WATT)*(1.28)/50)
+#define PID_I_400_450_SLOPE                                 ((PID_I_450_WATT - PID_I_400_WATT)*(1.28)/50)
+#define PID_D_400_450_SLOPE                                 ((PID_D_450_WATT - PID_D_400_WATT)*(1.28)/50)
 
 
-#define PID_P_450_500_SLOPE                                ((PID_P_500_WATT - PID_P_450_WATT)*(1.28)/250)
-#define PID_I_450_500_SLOPE                                ((PID_I_500_WATT - PID_I_450_WATT)*(1.28)/250)
-#define PID_D_450_500_SLOPE                                ((PID_D_500_WATT - PID_D_450_WATT)*(1.28)/250)
+#define PID_P_450_500_SLOPE                                ((PID_P_500_WATT - PID_P_450_WATT)*(1.28)/50)
+#define PID_I_450_500_SLOPE                                ((PID_I_500_WATT - PID_I_450_WATT)*(1.28)/50)
+#define PID_D_450_500_SLOPE                                ((PID_D_500_WATT - PID_D_450_WATT)*(1.28)/50)
 
 
 
