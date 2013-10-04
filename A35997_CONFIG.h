@@ -25,60 +25,60 @@
 
 
 // ------------  START PID CONFIGURATION --------------- //
-//#define _POWER_BASED_PID_MODE                                 // Enables multiple PID values based on power level
+#define _POWER_BASED_PID_MODE                                 // Enables multiple PID values based on power level
 
 
 // This are the values if _POWER_BASED_PID_MODE is not defined
 #define POWER_PID_P_COMPONENT                              .0
-#define POWER_PID_I_COMPONENT                              .1
+#define POWER_PID_I_COMPONENT                              .05
 #define POWER_PID_D_COMPONENT                              .00
 
 
 
 // This are the values if _POWER_BASED_PID_MODE is defined
-#define PID_P_0_WATT                                       Q15(.27)
-#define PID_I_0_WATT                                       Q15(.53)
-#define PID_D_0_WATT                                       Q15(.2)
+#define PID_P_0_WATT                                       Q15(0)
+#define PID_I_0_WATT                                       Q15(.99)
+#define PID_D_0_WATT                                       Q15(.99)
 
-#define PID_P_50_WATT                                      Q15(.27)
-#define PID_I_50_WATT                                      Q15(.53)
-#define PID_D_50_WATT                                      Q15(.2)
+#define PID_P_50_WATT                                      Q15(.35)
+#define PID_I_50_WATT                                      Q15(.52)
+#define PID_D_50_WATT                                      Q15(.20)
 
-#define PID_P_100_WATT                                     Q15(.21)
-#define PID_I_100_WATT                                     Q15(.31)
+#define PID_P_100_WATT                                     Q15(.23)
+#define PID_I_100_WATT                                     Q15(.29)
 #define PID_D_100_WATT                                     Q15(.15)
 
 
 
-#define PID_P_150_WATT                                     Q15(.14)
-#define PID_I_150_WATT                                     Q15(.22)
+#define PID_P_150_WATT                                     Q15(.165)
+#define PID_I_150_WATT                                     Q15(.205)
 #define PID_D_150_WATT                                     Q15(.10)
 
-#define PID_P_200_WATT                                     Q15(.10)
+#define PID_P_200_WATT                                     Q15(.135)
 #define PID_I_200_WATT                                     Q15(.17)
 #define PID_D_200_WATT                                     Q15(.05)
 
 
 
-#define PID_P_250_WATT                                     Q15(.08)
+#define PID_P_250_WATT                                     Q15(.105)
 #define PID_I_250_WATT                                     Q15(.135)
 #define PID_D_250_WATT                                     Q15(.02)
 
 
 
-#define PID_P_300_WATT                                     Q15(.075)
-#define PID_I_300_WATT                                     Q15(.12)
+#define PID_P_300_WATT                                     Q15(.095)
+#define PID_I_300_WATT                                     Q15(.115)
 #define PID_D_300_WATT                                     Q15(.015)
 
-#define PID_P_350_WATT                                     Q15(.07)
-#define PID_I_350_WATT                                     Q15(.11)
-#define PID_D_350_WATT                                     Q15(.012)
+#define PID_P_350_WATT                                     Q15(.085)
+#define PID_I_350_WATT                                     Q15(.105)
+#define PID_D_350_WATT                                     Q15(.0095)
 
-#define PID_P_400_WATT                                     Q15(.06)
-#define PID_I_400_WATT                                     Q15(.1)
-#define PID_D_400_WATT                                     Q15(.01)
+#define PID_P_400_WATT                                     Q15(.07)
+#define PID_I_400_WATT                                     Q15(.095)
+#define PID_D_400_WATT                                     Q15(.0065)
 
-#define PID_P_450_WATT                                     Q15(.04)
+#define PID_P_450_WATT                                     Q15(.05)
 #define PID_I_450_WATT                                     Q15(.085)
 #define PID_D_450_WATT                                     Q15(.004)
 
@@ -87,9 +87,9 @@
 
 
 
-#define PID_P_500_WATT                                     Q15(.01)
+#define PID_P_500_WATT                                     Q15(.025)
 #define PID_I_500_WATT                                     Q15(.075)
-#define PID_D_500_WATT                                     Q15(.0004)
+#define PID_D_500_WATT                                     Q15(.001)
 
 
 // ------------  END PID CONFIGURATION --------------- //
