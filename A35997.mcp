@@ -89,8 +89,8 @@ file_010=A35997.h
 file_011=A35997_PINS.h
 file_012=A35997_CONFIG.h
 file_013=A35997_DETECTOR_LOOK_UP_TABLE.h
-file_014=C:\Program Files\Microchip\MPLAB C30\lib\libdsp-elf.a
-file_015=C:\Program Files\Microchip\MPLAB C30\lib\libdsp-coff.a
+file_014=libdsp-coff.a
+file_015=libdsp-elf.a
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=

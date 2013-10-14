@@ -177,7 +177,7 @@ void UpdateFaults(void) {
   }
   if (total_reverse_power_centi_watts > max_reflected_power) {
     over_refected_power_count++;
-    if (over_refected_power_count > (MAX_OVER_REFLECTED_TIME + MAX_OVER_REFLECTED_TIME_HYSTERESIS)) {
+    if (over_refected_power_count > MAX_OVER_REFLECTED_TIME) {
       over_refected_power_count = MAX_OVER_REFLECTED_TIME + MAX_OVER_REFLECTED_TIME_HYSTERESIS;
     }
   } else {

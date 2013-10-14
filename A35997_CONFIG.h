@@ -17,9 +17,10 @@
 
 
 
-#define MINIMUM_POWER_TARGET                               100           // 1 Watt - Below this level the amplifier will be disabled
+#define MINIMUM_POWER_TARGET                               500           // 5 Watt - Below this level the amplifier will be disabled
+#define MINIMUM_POWER_TARGET_HYSTERESIS                    200           // Hysteresis on Minimum power.
+                                                                         // Once the program level exceeds 5 watts it must drop below 2 watts before it turns off
 #define MAX_POWER_TARGET                                   53500         // 535 Watts
-#define FOLDBACK_POWER_PROGRAM                             25000         // 250 Watts
 
 #define FRONT_PANEL_LED_NUMBER_OF_FLASHES_AT_STARTUP       3
 
@@ -134,13 +135,11 @@
 
 
 // -------------------- Over Reflected Power -------------------- //
-
-#define MAX_STEADY_STATE_REFLECTED_POWER                   25000   // 250 Watts
-#define MAX_FOLDBACK_REFLECTED_POWER                       12500   // 125 Watts
-#define MAX_OVER_REFLECTED_TIME                            6000    // 15 Seconds (10ms Units)
+#define FOLDBACK_POWER_PROGRAM                             20000   // 200 Watts
+#define MAX_STEADY_STATE_REFLECTED_POWER                   20000   // 200 Watts
+#define MAX_FOLDBACK_REFLECTED_POWER                       10000   // 100 Watts
+#define MAX_OVER_REFLECTED_TIME                            500     // 15 Seconds (10ms Units)
 #define MAX_OVER_REFLECTED_TIME_HYSTERESIS                 200     // 2 Seconds (10ms Units)
-
-
 
 
 

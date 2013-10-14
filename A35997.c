@@ -85,6 +85,7 @@ volatile unsigned int last_valid_detector_B_adc_reading = 0xFFFF;
 
 //---------- Local  Variables ----------//
 unsigned int software_rf_disable = 1;
+unsigned int minimum_power_to_operate = MINIMUM_POWER_TARGET;
 
 unsigned int led_pulse_count;
 unsigned int front_panel_led_startup_flash_couter;
@@ -1265,13 +1266,15 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
 
 #endif
   
-  //  if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > MINIMUM_POWER_TARGET)) {
-  if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0)) {
+  if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0) && (power_target_centi_watts > minimum_power_to_operate)) {
+    //if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0)) {
     // The RF output should be enabled
+    minimum_power_to_operate = MINIMUM_POWER_TARGET - MINIMUM_POWER_TARGET_HYSTERESIS;
     PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
     pid_forward_power.controlReference = power_target_centi_watts >> 1;
     PID(&pid_forward_power);
   } else {
+    minimum_power_to_operate = MINIMUM_POWER_TARGET;
     // The RF Output should be disabled
     PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
     pid_forward_power.controlReference = 0;
