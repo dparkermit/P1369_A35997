@@ -84,6 +84,7 @@ volatile unsigned int last_valid_detector_B_adc_reading = 0xFFFF;
 
 
 //---------- Local  Variables ----------//
+unsigned int power_ramp_centi_watts = 0;
 unsigned int software_rf_disable = 1;
 unsigned int minimum_power_to_operate = MINIMUM_POWER_TARGET;
 
@@ -876,6 +877,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
   unsigned long power_long;
   unsigned int power_target_centi_watts;
   unsigned long power_average;
+  unsigned int power_ramp_rate;
 
   int pid_p;
   int pid_i;
@@ -1103,12 +1105,24 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     }
   }
 
+#ifdef _POWER_RAMP
+  power_ramp_rate = ETMScale16Bit(power_target_centi_watts, RAMP_RATE_SCALE_FACTOR, 0);
+  power_ramp_centi_watts = power_ramp_centi_watts + power_ramp_rate;
+  if (power_ramp_centi_watts >= power_target_centi_watts) {
+    power_ramp_centi_watts = power_target_centi_watts;
+  }
+#else
+  power_ramp_centi_watts = power_target_centi_watts
+#endif
+
+
+
 
 #ifdef _POWER_BASED_PID_MODE
   
-  if (power_target_centi_watts < 5000) {
+  if (power_ramp_centi_watts < 5000) {
     // 0 -> 50 Watts
-    delta = power_target_centi_watts;
+    delta = power_ramp_centi_watts;
     delta >>= 7;
     pid_p = PID_P_0_50_SLOPE;
     pid_p *= delta;
@@ -1121,9 +1135,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_0_50_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_0_WATT;
-  } else if (power_target_centi_watts < 10000) {
+  } else if (power_ramp_centi_watts < 10000) {
     // 50 -> 100 Watts
-    delta = power_target_centi_watts - 5000;
+    delta = power_ramp_centi_watts - 5000;
     delta >>= 7;
     pid_p = PID_P_50_100_SLOPE;
     pid_p *= delta;
@@ -1136,9 +1150,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_50_100_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_50_WATT;
-  } else if (power_target_centi_watts < 15000) {
+  } else if (power_ramp_centi_watts < 15000) {
     // 100 -> 150 Watts
-    delta = power_target_centi_watts - 10000;
+    delta = power_ramp_centi_watts - 10000;
     delta >>= 7;
     pid_p = PID_P_100_150_SLOPE;
     pid_p *= delta;
@@ -1151,9 +1165,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_100_150_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_100_WATT;
-  } else if (power_target_centi_watts < 20000) {
+  } else if (power_ramp_centi_watts < 20000) {
     // 150 -> 200 Watts
-    delta = power_target_centi_watts - 15000;
+    delta = power_ramp_centi_watts - 15000;
     delta >>= 7;
     pid_p = PID_P_150_200_SLOPE;
     pid_p *= delta;
@@ -1166,9 +1180,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_150_200_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_150_WATT;
-  } else if (power_target_centi_watts < 25000) {
+  } else if (power_ramp_centi_watts < 25000) {
     // 200 -> 250 Watts
-    delta = power_target_centi_watts - 20000;
+    delta = power_ramp_centi_watts - 20000;
     delta >>= 7;
     pid_p = PID_P_200_250_SLOPE;
     pid_p *= delta;
@@ -1181,9 +1195,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_200_250_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_200_WATT;
-  } else if (power_target_centi_watts < 30000) {
+  } else if (power_ramp_centi_watts < 30000) {
     // 250 -> 300 Watts
-    delta = power_target_centi_watts - 25000;
+    delta = power_ramp_centi_watts - 25000;
     delta >>= 7;
     pid_p = PID_P_250_300_SLOPE;
     pid_p *= delta;
@@ -1196,9 +1210,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_250_300_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_250_WATT;
-  } else if (power_target_centi_watts < 35000) {
+  } else if (power_ramp_centi_watts < 35000) {
     // 300 -> 350 Watts
-    delta = power_target_centi_watts - 30000;
+    delta = power_ramp_centi_watts - 30000;
     delta >>= 7;
     pid_p = PID_P_300_350_SLOPE;
     pid_p *= delta;
@@ -1211,9 +1225,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_300_350_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_300_WATT;
-  } else if (power_target_centi_watts < 40000) {
+  } else if (power_ramp_centi_watts < 40000) {
     // 350 -> 400 Watts
-    delta = power_target_centi_watts - 35000;
+    delta = power_ramp_centi_watts - 35000;
     delta >>= 7;
     pid_p = PID_P_350_400_SLOPE;
     pid_p *= delta;
@@ -1226,9 +1240,9 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d = PID_D_350_400_SLOPE;
     pid_d *= delta;
     pid_d += PID_D_350_WATT;
-  } else if (power_target_centi_watts < 45000) {
+  } else if (power_ramp_centi_watts < 45000) {
     // 400 -> 450 Watts
-    delta = power_target_centi_watts - 40000;
+    delta = power_ramp_centi_watts - 40000;
     delta >>= 7;
     pid_p = PID_P_400_450_SLOPE;
     pid_p *= delta;
@@ -1243,7 +1257,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     pid_d += PID_D_400_WATT;
   } else {
     // 450+ Watts
-    delta = power_target_centi_watts - 45000;
+    delta = power_ramp_centi_watts - 45000;
     delta >>= 7;
     pid_p = PID_P_450_500_SLOPE;
     pid_p *= delta;
@@ -1271,9 +1285,10 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     // The RF output should be enabled
     minimum_power_to_operate = MINIMUM_POWER_TARGET - MINIMUM_POWER_TARGET_HYSTERESIS;
     PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
-    pid_forward_power.controlReference = power_target_centi_watts >> 1;
+    pid_forward_power.controlReference = power_ramp_centi_watts >> 1;
     PID(&pid_forward_power);
   } else {
+    power_ramp_centi_watts = 0;
     minimum_power_to_operate = MINIMUM_POWER_TARGET;
     // The RF Output should be disabled
     PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;

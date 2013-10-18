@@ -2,7 +2,10 @@
 #define __A35997_CONFIG_H  
 
 
-#define _DO_TIME_COMP
+
+#define _POWER_RAMP
+
+//#define _DO_TIME_COMP
 
 #define _DO_THERMAL_COMP
 
@@ -17,12 +20,14 @@
 
 
 
-#define MINIMUM_POWER_TARGET                               500           // 5 Watt - Below this level the amplifier will be disabled
-#define MINIMUM_POWER_TARGET_HYSTERESIS                    200           // Hysteresis on Minimum power.
+#define MINIMUM_POWER_TARGET                               2500          // 25 Watt - Below this level the amplifier will be disabled
+#define MINIMUM_POWER_TARGET_HYSTERESIS                    500           // 5 Hysteresis on Minimum power.
                                                                          // Once the program level exceeds 5 watts it must drop below 2 watts before it turns off
 #define MAX_POWER_TARGET                                   53500         // 535 Watts
 
 #define FRONT_PANEL_LED_NUMBER_OF_FLASHES_AT_STARTUP       3
+
+#define RAMP_RATE_SCALE_FACTOR                             1310           // This will cause zero to full power ramp over 50 100us cycles (5ms)     
 
 
 // ------------  START PID CONFIGURATION --------------- //
