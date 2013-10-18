@@ -821,12 +821,12 @@ void FilterADCs(void) {
   averaged_adc_reading = AverageADC128(reverse_detector_a_array);
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
   //reverse_power_detector_A.detector_level_calibrated = RCFilter8Tau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading);
-  reverse_power_detector_A.detector_level_calibrated = RCFilterNTau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
+  reverse_power_detector_A.detector_level_calibrated = RCFilterNTau(reverse_power_detector_A.detector_level_calibrated, averaged_adc_reading,RC_FILTER_2_TAU);
   ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_A);
   
   averaged_adc_reading = AverageADC128(reverse_detector_b_array);
   // This would be the place to add detector level calibration if it was needed which I do not think it is for the reverse detectors
-  reverse_power_detector_B.detector_level_calibrated = RCFilterNTau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading,RC_FILTER_8_TAU);
+  reverse_power_detector_B.detector_level_calibrated = RCFilterNTau(reverse_power_detector_B.detector_level_calibrated, averaged_adc_reading,RC_FILTER_2_TAU);
   reverse_power_detector_B.detector_level_calibrated = reverse_power_detector_A.detector_level_calibrated;
   ConvertDetectorLevelToPowerCentiWatts(&reverse_power_detector_B);
 
