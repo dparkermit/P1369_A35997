@@ -125,9 +125,11 @@ void DoA35997StateMachine(void) {
   case STATE_START_UP:
     DoA35997StartUp();
     control_state = STATE_FLASH_LEDS_AT_STARTUP;
+    PIN_TEST_POINT_29 = !OLL_TP29_FOLDBACK_ON;
     break;
 
   case STATE_FLASH_LEDS_AT_STARTUP:
+    PIN_TEST_POINT_29 = !OLL_TP29_FOLDBACK_ON;
     front_panel_led_startup_flash_couter = 0;
     front_panel_led_state = FLASH_ALL_SERIES;
     front_panel_led_pulse_count = 0;
@@ -144,6 +146,7 @@ void DoA35997StateMachine(void) {
     
   case STATE_RF_OFF:
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
+    PIN_TEST_POINT_29 = !OLL_TP29_FOLDBACK_ON;
     software_foldback_mode_enable = 0;
     software_rf_disable = 0; 
     front_panel_led_state = SOLID_GREEN;
@@ -166,6 +169,7 @@ void DoA35997StateMachine(void) {
 
   case STATE_RF_ON:
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
+    PIN_TEST_POINT_29 = !OLL_TP29_FOLDBACK_ON;
     software_foldback_mode_enable = 0;
     software_rf_disable = 0;
     front_panel_led_state = SOLID_BLUE;
@@ -189,6 +193,7 @@ void DoA35997StateMachine(void) {
     
   case STATE_RF_ON_FOLDBACK:
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
+    PIN_TEST_POINT_29 = OLL_TP29_FOLDBACK_ON;
     software_foldback_mode_enable = 1;
     front_panel_led_state = FLASH_BLUE;
     front_panel_led_pulse_count = 0;
@@ -211,6 +216,7 @@ void DoA35997StateMachine(void) {
     
   case STATE_FAULT_OVER_TEMP:
     PIN_SUM_FLT = OLL_PIN_SUM_FAULT_FAULTED;
+    PIN_TEST_POINT_29 = !OLL_TP29_FOLDBACK_ON;
     software_rf_disable = 1;
     front_panel_led_state = FLASH_RED;
     front_panel_led_pulse_count = 0;
@@ -228,6 +234,7 @@ void DoA35997StateMachine(void) {
     
   case STATE_FAULT_GENERAL_FAULT:
     PIN_SUM_FLT = OLL_PIN_SUM_FAULT_FAULTED;
+    PIN_TEST_POINT_29 = !OLL_TP29_FOLDBACK_ON;
     software_rf_disable = 1;
     front_panel_led_state = SOLID_RED;
     front_panel_led_pulse_count = 0;
@@ -294,7 +301,7 @@ void DoA35997StartUp(void) {
   PIN_TEST_POINT_26 = 0;
   PIN_TEST_POINT_27 = 0;
   PIN_TEST_POINT_28 = 0;
-  PIN_TEST_POINT_29 = 0;
+  PIN_TEST_POINT_29 = !OLL_TP29_FOLDBACK_ON;
   PIN_TEST_POINT_30 = 0;
 
   PIN_TEST_LED_1 = TEST_LED_OFF;
@@ -588,7 +595,6 @@ void Do10msTicToc(void) {
   PIN_TEST_POINT_28 = 1;
   ClrWdt();
   if (_T2IF) {
-    PIN_TEST_POINT_29 = 1;
     _T2IF = 0;
     //10ms roll has occured
     
@@ -618,7 +624,6 @@ void Do10msTicToc(void) {
 
     FilterADCs();           
     UpdateFaults();
-    PIN_TEST_POINT_29 = 0;
 
 
 #ifdef _DO_THERMAL_COMP

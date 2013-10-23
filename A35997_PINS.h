@@ -32,6 +32,7 @@
 
 #define PIN_TEST_POINT_29                    _LATG2
 #define TRIS_PIN_TEST_POINT_29               _TRISG2
+#define OLL_TP29_FOLDBACK_ON                 0
 
 #define PIN_TEST_POINT_30                    _LATG3
 #define TRIS_PIN_TEST_POINT_30               _TRISG3
