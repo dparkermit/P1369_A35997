@@ -137,11 +137,8 @@ void ExecuteCommand(void) {
       break;
 
     case CMD_SET_TARGET_POWER:
-      PIN_TEST_POINT_30 = 1;
       serial_link_power_target = data_word;
-      PIN_TEST_POINT_30 = 0;
       break;
-
 
     case CMD_SET_PID:
       switch (command_string.register_byte)

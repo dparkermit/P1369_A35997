@@ -150,6 +150,7 @@ void DoA35997StateMachine(void) {
     front_panel_led_pulse_count = 0;
     // We don't want to wait for the software loop to start the amplifier so this must be pre-set to the on condition.
     while (control_state == STATE_RF_OFF) {
+      PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
       DoSerialCommand();
       Do10msTicToc();
       if (FaultCheckOverTemp()) {
@@ -214,6 +215,7 @@ void DoA35997StateMachine(void) {
     front_panel_led_state = FLASH_RED;
     front_panel_led_pulse_count = 0;
     while (control_state == STATE_FAULT_OVER_TEMP) {
+      PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
       DoSerialCommand();
       Do10msTicToc();
       if (FaultCheckGeneralFault()) {
@@ -230,6 +232,7 @@ void DoA35997StateMachine(void) {
     front_panel_led_state = SOLID_RED;
     front_panel_led_pulse_count = 0;
     while (control_state == STATE_FAULT_GENERAL_FAULT) {
+      PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
       DoSerialCommand();
       Do10msTicToc();
       if (!FaultCheckGeneralFault() && !FaultCheckOverTemp()) {
@@ -1284,6 +1287,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     //if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0)) {
     // The RF output should be enabled
     minimum_power_to_operate = MINIMUM_POWER_TARGET - MINIMUM_POWER_TARGET_HYSTERESIS;
+    PIN_TEST_POINT_30 = !OLL_TP_30_MAX_ATTENUATION;
     PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
     pid_forward_power.controlReference = power_ramp_centi_watts >> 1;
     PID(&pid_forward_power);
@@ -1291,7 +1295,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     power_ramp_centi_watts = 0;
     minimum_power_to_operate = MINIMUM_POWER_TARGET;
     // The RF Output should be disabled
-    PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
+    PIN_TEST_POINT_30 = !OLL_TP_30_MAX_ATTENUATION;
     pid_forward_power.controlReference = 0;
     pid_forward_power.controlOutput = 0;
   }
