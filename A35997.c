@@ -1292,7 +1292,7 @@ void __attribute__((interrupt(__save__(ACCA,CORCON,SR)),no_auto_psv)) _T1Interru
     //if ((PIN_RF_ENABLE == ILL_PIN_RF_ENABLE_ENABLED) && (software_rf_disable == 0)) {
     // The RF output should be enabled
     minimum_power_to_operate = MINIMUM_POWER_TARGET - MINIMUM_POWER_TARGET_HYSTERESIS;
-    PIN_TEST_POINT_30 = !OLL_TP_30_MAX_ATTENUATION;
+    PIN_TEST_POINT_30 = OLL_TP_30_MAX_ATTENUATION;
     PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
     pid_forward_power.controlReference = power_ramp_centi_watts >> 1;
     PID(&pid_forward_power);

@@ -36,7 +36,7 @@
 
 #define PIN_TEST_POINT_30                    _LATG3
 #define TRIS_PIN_TEST_POINT_30               _TRISG3
-#define OLL_TP_30_MAX_ATTENUATION            0
+#define OLL_TP_30_MAX_ATTENUATION            1
 
 
 // Test LED Pins Output Pins
