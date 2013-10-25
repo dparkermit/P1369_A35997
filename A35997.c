@@ -153,7 +153,7 @@ void DoA35997StateMachine(void) {
     front_panel_led_pulse_count = 0;
     // We don't want to wait for the software loop to start the amplifier so this must be pre-set to the on condition.
     while (control_state == STATE_RF_OFF) {
-      PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
+      PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
       DoSerialCommand();
       Do10msTicToc();
       if (FaultCheckOverTemp()) {
@@ -170,6 +170,7 @@ void DoA35997StateMachine(void) {
   case STATE_RF_ON:
     PIN_SUM_FLT = !OLL_PIN_SUM_FAULT_FAULTED;
     PIN_TEST_POINT_29 = !OLL_TP29_FOLDBACK_ON;
+    PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
     software_foldback_mode_enable = 0;
     software_rf_disable = 0;
     front_panel_led_state = SOLID_BLUE;
@@ -221,7 +222,7 @@ void DoA35997StateMachine(void) {
     front_panel_led_state = FLASH_RED;
     front_panel_led_pulse_count = 0;
     while (control_state == STATE_FAULT_OVER_TEMP) {
-      PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
+      PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
       DoSerialCommand();
       Do10msTicToc();
       if (FaultCheckGeneralFault()) {
@@ -239,7 +240,7 @@ void DoA35997StateMachine(void) {
     front_panel_led_state = SOLID_RED;
     front_panel_led_pulse_count = 0;
     while (control_state == STATE_FAULT_GENERAL_FAULT) {
-      PIN_ENABLE_RF_AMP = OLL_PIN_ENABLE_RF_AMP_ENABLED;
+      PIN_ENABLE_RF_AMP = !OLL_PIN_ENABLE_RF_AMP_ENABLED;
       DoSerialCommand();
       Do10msTicToc();
       if (!FaultCheckGeneralFault() && !FaultCheckOverTemp()) {
