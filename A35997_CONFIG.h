@@ -129,8 +129,8 @@
 
 
 // -------------------- Over Reflected Power -------------------- //
-#define FOLDBACK_POWER_PROGRAM                             20000   // 200 Watts
-#define MAX_STEADY_STATE_REFLECTED_POWER                   20000   // 200 Watts
+#define FOLDBACK_POWER_PROGRAM                             15000   // 150 Watts
+#define MAX_STEADY_STATE_REFLECTED_POWER                   15000   // 150 Watts
 #define MAX_FOLDBACK_REFLECTED_POWER                       10000   // 100 Watts
 #define MAX_OVER_REFLECTED_TIME                            4       // 40mS (10ms Units)
 #define MAX_OVER_REFLECTED_TIME_HYSTERESIS                 500     // 5 Sec (10ms Units)
